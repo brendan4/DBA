@@ -21,7 +21,7 @@ dev.copy(png,'Output/Figures/pre-removal.png') # saving options for figure
 dev.off()
 
 # sample removals
-pheno.dis <- c("L6.TTAGGC", "L3.TTAGGC") # pheno discrepancy
+pheno.dis <- c("L6.TTAGGC", "L3.TTAGGC") # pheno discrepancy: gender and no pheno
 remove <- c(names(which(apply(cor.table, 2, mean) < 
                           0.88)), pheno.dis) # remove samples with cor > .88
 counts <- counts %>% dplyr::select(-one_of(remove)) 
@@ -36,7 +36,7 @@ dev.off()
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
 
 ## DESeq2 analysis
-counts <- counts[,match(rownames(pheno), colnames(counts))]
+counts <- counts[,match(rownames(pheno), colnames(counts))] # ordering counts with pheno
 dds <- DESeqDataSetFromMatrix(countData = counts,
                               colData = pheno,
                               design = ~  pheno) # experiment declaration 
@@ -44,9 +44,9 @@ dds <- DESeqDataSetFromMatrix(countData = counts,
 # PCA plot with VST transform 
 vsd <- vst(dds)
 pcaData <- DESeq2::plotPCA(vsd, intgroup = c("pheno"))
-ggplot(pcaData$data)  + # with replicate labels
-  geom_text(aes(PC1, PC2, color = pheno), label = pheno$Replicates)+
-  ylab(pcaData$labels$y)+
+ggplot(pcaData$data)  + 
+  geom_text(aes(PC1, PC2, color = pheno), label = pheno$Replicates) + # with replicate labels
+  ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
 dev.copy(png,'Output/Figures/PCA.png') # saving options for figure
 dev.off()
@@ -61,7 +61,7 @@ res <- results(dds, contrast = c("pheno", "C", "W")) #specify group comparisons 
 summary(res)
 
 # top results
-top <- rownames(res)[which(res$padj < 0.00005)]
+top <- rownames(res)[which(res$padj < 0.05)] # sig genes
 plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
 
 # MA plot
