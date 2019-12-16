@@ -1,5 +1,7 @@
 library(dplyr)
 library(DESeq2)
+library(pheatmap)
+library(ggplot2)
 
 # importing data
 counts <- read.table("Input_data/unprocessed_counts.tab", row.names = 1, check.names = F)
@@ -9,19 +11,33 @@ pheno <- read.table("Input_data/pheno.tab",row.names = 1, check.names = F)
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
 colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes tag from lib samples
 
-# removal of samples
+## removal of samples
 counts <- counts %>% dplyr::select(-contains("unmatched"))
 cor.table <- cor(counts, method = "spearman") # spearman cor table
+
+# cor heat map: pre-removal
+pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
+dev.copy(png,'Output/Figures/pre-removal.png') # saving options for figure
+dev.off()
+
+# sample removals
 pheno.dis <- c("L6.TTAGGC", "L3.TTAGGC") # pheno discrepancy
-remove <- c(names(which(apply(cor.table, 2, sum) < 
-                          ncol(cor.table)*.88)), pheno.dis) # remove samples with cor > .88
+remove <- c(names(which(apply(cor.table, 2, mean) < 
+                          0.88)), pheno.dis) # remove samples with cor > .88
 counts <- counts %>% dplyr::select(-one_of(remove)) 
+
+# cor heat map: post-removal
+cor.table <- cor(counts, method = "spearman") # spearman cor table
+pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
+dev.copy(png,'Output/Figures/post-removal.png') # saving options for figure
+dev.off()
 
 # saving options
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
 
 ## DESeq2 analysis
-dds <- DESeqDataSetFromMatrix(countData = counts.t,
+counts <- counts[,match(rownames(pheno), colnames(counts))]
+dds <- DESeqDataSetFromMatrix(countData = counts,
                               colData = pheno,
                               design = ~  pheno) # experiment declaration 
 
@@ -32,10 +48,14 @@ ggplot(pcaData$data)  + # with replicate labels
   geom_text(aes(PC1, PC2, color = pheno), label = pheno$Replicates)+
   ylab(pcaData$labels$y)+
   xlab(pcaData$labels$x)
+dev.copy(png,'Output/Figures/PCA.png') # saving options for figure
+dev.off()
 
 # differential expression 
 dds <- DESeq(dds)
-plotDispEsts(dds)
+plotDispEsts(dds) # dispersion plot
+dev.copy(png,'Output/Figures/dispersion.png') # saving options for figure
+dev.off()
 
 res <- results(dds, contrast = c("pheno", "C", "W")) #specify group comparisons here
 summary(res)
