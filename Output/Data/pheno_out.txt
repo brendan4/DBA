@@ -1,0 +1,44 @@
+library_ID,sample_definition,individual_number,batch_number,index_number,index_sequence,lane
+061518_LIB5,human RNA sample 5 lab notebook 6 page 75,III.1,1,INDEX1,L3.ATCACG,061518_CC										
+061518_LIB6,human RNA sample 6 lab notebook 6 page 75,III.2,1,INDEX2,L3.CGATGT,061518_CC										
+061518_LIB8,human RNA sample 8 lab notebook 6 page 75,III.4,1,INDEX4,L3.TGACCA,061518_CC										
+061518_LIB9,human RNA sample 9 lab notebook 6 page 75,III.5,1,INDEX5,L3.ACAGTG,061518_CC										
+061518_LIB10,human RNA sample 10 lab notebook 6 page 75,III.6,1,INDEX6,L3.GCCAAT,061518_CC										
+061518_LIB11,human RNA sample 11 lab notebook 6 page 75,III.11,1,INDEX7,L3.CAGATC,061518_CC										
+061518_LIB12,human RNA sample 12 lab notebook 6 page 75,I.1,1,INDEX8,L3.ACTTGA,061518_CC										
+061518_LIB13,human RNA sample 13 lab notebook 6 page 75,II.6,1,INDEX9,L3.GATCAG,061518_CC										
+061518_LIB14,human RNA sample 14 lab notebook 6 page 75,II.7,1,INDEX10,L3.TAGCTT,061518_CC										
+061518_LIB15,human RNA sample 15 lab notebook 6 page 75,II.8,1,INDEX11,L3.GGCTAC,061518_CC										
+061518_LIB16,human RNA sample 16 lab notebook 6 page 75,III.1,1,INDEX12,L3.CTTGTA,061518_CC										
+062118_LIB6,human RNA sample 6 lab notebook 6 page 75,III.2,2,INDEX5,L6.ACAGTG,062118_CC		
+062118_LIB7,human RNA sample 7 lab notebook 6 page 75,III.3,2,INDEX6,L6.GCCAAT,062118_CC		
+062118_LIB8,human RNA sample 8 lab notebook 6 page 75,III.4,2,INDEX7,L6.CAGATC,062118_CC		
+062118_LIB18,human RNA sample 18 lab notebook 6 page 75,III.3,2,INDEX8,L6.ACTTGA,062118_CC		
+062118_LIB21,human RNA sample 21 lab notebook 6 page 75,III.6,2,INDEX9,L6.GATCAG,062118_CC		
+062118_LIB22,human RNA sample 22 lab notebook 6 page 75,III.11,2,INDEX10,L6.TAGCTT,062118_CC		
+062118_LIB23,human RNA sample 23 lab notebook 6 page 75,III.13,2,INDEX11,L6.GGCTAC,062118_CC		
+062118_LIB24,human RNA sample 24 lab notebook 6 page 75,III.12,2,INDEX12,L6.CTTGTA,062118_CC		
+062118_LIB25,human RNA sample 25 lab notebook 6 page 75,III.14,2,INDEX1,L6.ATCACG,062118_CC		
+062118_LIB26,human RNA sample 26 lab notebook 6 page 75,IV.5,2,INDEX2,L6.CGATGT,062118_CC		
+062118_LIB27,human RNA sample 27 lab notebook 6 page 75,I.1,2,INDEX3,L6.TTAGGC,062118_CC		
+062118_LIB33,human RNA sample 33 lab notebook 6 page 75,III.2,2,INDEX4,L6.TGACCA,062118_CC		
+061518_LIB17,human RNA sample 17 lab notebook 6 page 75,III.2,1,INDEX1,L2.ATCACG,062518_CC		
+061518_LIB19,human RNA sample 19 lab notebook 6 page 75,III.4,1,INDEX2,L2.CGATGT,062518_CC		
+061518_LIB20,human RNA sample 20 lab notebook 6 page 75,III.5,1,INDEX3,L2.TTAGGC,062518_CC		
+062118_LIB5,human RNA sample 5 lab notebook 6 page 75,III.1,2,INDEX4,L2.TGACCA,062518_CC		
+062518_LIB5,human RNA sample 5 lab notebook 6 page 75,III.1,3,INDEX5,L2.ACAGTG,062518_CC		
+062518_LIB6,human RNA sample 6 lab notebook 6 page 75,III.2,3,INDEX6,L2.GCCAAT,062518_CC		
+062518_LIB7,human RNA sample 7 lab notebook 6 page 75,III.3,3,INDEX7,L2.CAGATC,062518_CC		
+062518_LIB8,human RNA sample 8 lab notebook 6 page 75,III.4,3,INDEX8,L2.ACTTGA,062518_CC		
+062518_LIB28,human RNA sample 28 lab notebook 6 page 75,III.13,3,INDEX9,L2.GATCAG,062518_CC		
+062518_LIB29,human RNA sample 29 lab notebook 6 page 75,III.12,3,INDEX10,L2.TAGCTT,062518_CC		
+062518_LIB30,human RNA sample 30 lab notebook 6 page 75,III.14,3,INDEX11,L2.GGCTAC,062518_CC		
+062518_LIB31,human RNA sample 31 lab notebook 6 page 75,IV.5,3,INDEX12,L2.CTTGTA,062518_CC		
+121317_LIB1,human RNA sample 1 lab notebook 6 page 75,I.1,0,index 2,CGATGT,earlier_HiseqRun										
+121317_LIB2,human RNA sample 2 lab notebook 6 page 75,II.6,0,index 3,TTAGGC,earlier_HiseqRun										
+121317_LIB3,human RNA sample 3 lab notebook 6 page 75,II.7,0,index 4,TGACCA,earlier_HiseqRun										
+121317_LIB4,human RNA sample 4 lab notebook 6 page 75,II.8,0,index 5,ACAGTG,earlier_HiseqRun										
+121317_LIB5,human RNA sample 5 lab notebook 6 page 75,III.1,0,index 7,CAGATC,earlier_HiseqRun										
+121317_LIB6,human RNA sample 6 lab notebook 6 page 75,III.2,0,index 8,ACTTGA,earlier_HiseqRun										
+121317_LIB7,human RNA sample 7 lab notebook 6 page 75,III.3,0,index 10,TAGCTT,earlier_HiseqRun										
+121317_LIB8,human RNA sample 8 lab notebook 6 page 75,III.4,0,index 11,GGCTAC,earlier_HiseqRun										

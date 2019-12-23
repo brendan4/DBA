@@ -43,9 +43,15 @@ dds <- DESeqDataSetFromMatrix(countData = counts,
 
 # PCA plot with VST transform 
 vsd <- vst(dds)
-pcaData <- DESeq2::plotPCA(vsd, intgroup = c("pheno"))
+pcaData <- DESeq2::plotPCA(vsd, intgroup = c("pheno","batch_number"))
+# indiv labels
 ggplot(pcaData$data)  + 
-  geom_text(aes(PC1, PC2, color = pheno), label = pheno$Replicates) + # with replicate labels
+  geom_text(aes(PC1, PC2, color = batch_number), label = pheno$indiv) + # with replicate labels
+  ylab(pcaData$labels$y) +
+  xlab(pcaData$labels$x)
+# batch_number labels
+ggplot(pcaData$data)  + 
+  geom_point(aes(PC1, PC2, color = pheno, shape = batch_number)) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
 dev.copy(png,'Output/Figures/PCA.png') # saving options for figure
@@ -57,12 +63,12 @@ plotDispEsts(dds) # dispersion plot
 dev.copy(png,'Output/Figures/dispersion.png') # saving options for figure
 dev.off()
 
-res <- results(dds, contrast = c("pheno", "C", "W")) #specify group comparisons here
+res <- results(dds, contrast = c("pheno", "C", "S")) #specify group comparisons here
 summary(res)
 
 # top results
 top <- rownames(res)[which(res$padj < 0.05)] # sig genes
-plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
+plotCounts(dds, "CDK11A", "pheno", main = "CDK11A: Uncollasped") # plot normalized counts of specific genes by group
 
 # MA plot
 plotMA(res, ylim=c(-4,4)) 
