@@ -6,6 +6,7 @@ library(ggplot2)
 # importing data
 counts <- read.table("Input_data/unprocessed_counts.tab", row.names = 1, check.names = F)
 pheno <- read.table("Input_data/pheno.tab",row.names = 1, check.names = F)
+stat <- read.table("Input_data/stat.tab", row.names = 1, check.names = F)
 
 # clean sample names
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
@@ -22,8 +23,8 @@ dev.off()
 
 # sample removals
 pheno.dis <- c("L6.TTAGGC", "L3.TTAGGC") # pheno discrepancy: gender and no pheno
-remove <- c(names(which(apply(cor.table, 2, mean) < 
-                          0.88)), pheno.dis) # remove samples with cor > .88
+low.cor <- names(which(apply(cor.table, 2, mean) < 0.88))
+remove <- c(low.cor, pheno.dis) # remove samples with cor > .88
 counts <- counts %>% dplyr::select(-one_of(remove)) 
 
 # cor heat map: post-removal
@@ -31,6 +32,21 @@ cor.table <- cor(counts, method = "spearman") # spearman cor table
 pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
 dev.copy(png,'Output/Figures/post-removal.png') # saving options for figure
 dev.off()
+
+#read stat for removed samples
+stat <- stat %>% pivot_longer(col= 2:ncol(stat), 
+                              names_to = "sample" , 
+                              values_to = "count") %>% filter(count > 0)
+
+
+remove.stat <- stat[which(stat$sample %in% low.cor),]
+ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity", position = "fill") 
+dev.copy(png,'Output/Figures/stat-removal-ratio.png') # saving options for figure
+dev.off()
+options(scipen=10000) # gets rid of scietific notations
+ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity")
+dev.copy(png,'Output/Figures/stat-removal.png') # saving options for figure
+options(scipen=1)
 
 # saving options
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
@@ -68,7 +84,7 @@ summary(res)
 
 # top results
 top <- rownames(res)[which(res$padj < 0.05)] # sig genes
-plotCounts(dds, "CDK11A", "pheno", main = "CDK11A: Uncollasped") # plot normalized counts of specific genes by group
+plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
 
 # MA plot
 plotMA(res, ylim=c(-4,4)) 
