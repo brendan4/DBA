@@ -13,6 +13,7 @@ pheno.data <- read_csv("Output/data/pheno_out.txt")
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
 colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes tag from lib samples
 
+# updating pheno.data names to match count data
 idx <- which(gsub(".\\d*$", "",colnames(counts)) %in%
                gsub("^121317.", "", pheno.data$library_ID)) # match earler hiseq rows
 pheno.data[which(pheno.data$lane=="earlier_HiseqRun"), "index_sequence"]<- colnames(counts)[idx] # using counts naming convention for ealier hiseqrun
@@ -39,22 +40,27 @@ pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
 dev.copy(png,'Output/Figures/Fig2-post-removal.png') # saving options for figure
 dev.off()
 
-#read stat for removed samples
+# read stat for removed samples
 stat <- stat %>% pivot_longer(col= 2:ncol(stat), 
                               names_to = "sample" , 
                               values_to = "count") %>% filter(count > 0)
 
 # ratio counting stats
 remove.stat <- stat[which(stat$sample %in% low.cor),]
-ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity", position = "fill") 
+ggplot(remove.stat, aes(sample, count, fill = Status)) + 
+  geom_bar(stat = "identity", position = "fill") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.copy(png,'Output/Figures/Fig3-stat-removal-ratio.png') # saving options for figure
 dev.off()
 
 # counting stats
-options(scipen=10000) # gets rid of scietific notations
-ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity")
+options(scipen=10000) # gets rid of scientific notations
+ggplot(remove.stat, aes(sample, count, fill = Status)) + 
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.copy(png,'Output/Figures/Fig4-stat-removal.png') # saving options for figure
 options(scipen=1)
+dev.off()
 
 # saving options
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
@@ -73,6 +79,7 @@ dds <- DESeqDataSetFromMatrix(countData = counts,
 # PCA plot with VST transform 
 vsd <- vst(dds)
 pcaData <- DESeq2::plotPCA(vsd, intgroup = c("pheno","batch_number"))
+
 # indiv labels
 ggplot(pcaData$data)  + 
   geom_text(aes(PC1, PC2, color = pheno), label = pheno$indiv) + # with replicate labels
