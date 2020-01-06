@@ -18,7 +18,7 @@ cor.table <- cor(counts, method = "spearman") # spearman cor table
 
 # cor heat map: pre-removal
 pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
-dev.copy(png,'Output/Figures/pre-removal.png') # saving options for figure
+dev.copy(png,'Output/Figures/Fig1-pre-removal.png') # saving options for figure
 dev.off()
 
 # sample removals
@@ -30,7 +30,7 @@ counts <- counts %>% dplyr::select(-one_of(remove))
 # cor heat map: post-removal
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
-dev.copy(png,'Output/Figures/post-removal.png') # saving options for figure
+dev.copy(png,'Output/Figures/Fig2-post-removal.png') # saving options for figure
 dev.off()
 
 #read stat for removed samples
@@ -41,11 +41,11 @@ stat <- stat %>% pivot_longer(col= 2:ncol(stat),
 
 remove.stat <- stat[which(stat$sample %in% low.cor),]
 ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity", position = "fill") 
-dev.copy(png,'Output/Figures/stat-removal-ratio.png') # saving options for figure
+dev.copy(png,'Output/Figures/Fig3-stat-removal-ratio.png') # saving options for figure
 dev.off()
 options(scipen=10000) # gets rid of scietific notations
 ggplot(remove.stat, aes(sample, count, fill = Status)) + geom_bar(stat = "identity")
-dev.copy(png,'Output/Figures/stat-removal.png') # saving options for figure
+dev.copy(png,'Output/Figures/Fig4-stat-removal.png') # saving options for figure
 options(scipen=1)
 
 # saving options
@@ -70,7 +70,7 @@ ggplot(pcaData$data)  +
   geom_point(aes(PC1, PC2, color = pheno, shape = batch_number)) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
-dev.copy(png,'Output/Figures/PCA.png') # saving options for figure
+dev.copy(png,'Output/Figures/Fig5-PCA.png') # saving options for figure
 dev.off()
 
 # differential expression 
