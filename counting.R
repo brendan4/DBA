@@ -7,8 +7,12 @@ setwd(main)
 all.folders <- list.files() # lists all folders in that are bams
 bam.files <- c() # holder of bam files 
 for(i in 1:length(all.folders)){ # cycles through folder and adds bam file 
-  setwd(paste(main, all.folders[i],sep = "/"))
-  bam.files <- c(bam.files, paste(main, all.folders[i],list.files(pattern = ".bam$"), sep = "/"))
+  setwd(paste(main, 
+              all.folders[i],
+              sep = "/"))
+  bam.files <- c(bam.files, paste(main, all.folders[i],
+                                  list.files(pattern = ".bam$"), 
+                                  sep = "/"))
   setwd(main)
 }
 
@@ -18,18 +22,30 @@ main2 <-"/media/brendan/Elements/dba/main_batch" # root folder that contains bam
 setwd(main2)
 all.folders <- list.files()
 for(i in 1:length(all.folders)){
-  setwd(paste(main2, all.folders[i],sep = "/"))
-  bam.files <- c(bam.files, paste(main2, all.folders[i],list.files(pattern = ".bam$"), sep = "/"))
+  setwd(paste(main2, 
+              all.folders[i],
+              sep = "/"))
+  bam.files <- c(bam.files, paste(main2, 
+                                  all.folders[i],
+                                  list.files(pattern = ".bam$"), 
+                                  sep = "/"))
   setwd(main2)
 }
 
 setwd("..") # up one level 
 setwd("annotation") # opens annotation folder
 anno <- list.files(pattern = ".gz$", full.names = TRUE) # sets annotation location 
-fc <- featureCounts(bam.files, annot.ext= anno, isGTFAnnotationFile = T,isPairedEnd=TRUE) # conducts counting
+
+# counting function call 
+fc <- featureCounts(bam.files, 
+                    annot.ext= anno, 
+                    isGTFAnnotationFile = T,
+                    isPairedEnd=TRUE) 
+
+#extracting data
 counts <- fc$counts
 stat <- fc$stat
-write.table(stat, "Input_data/stat.tab", sep = "\t")
+write.table(stat, "Input_data/stat.tab", sep = "\t") # saving stat data
 
 #gene name conversions
 ids <- rownames(counts) # gene names from counts
@@ -53,5 +69,7 @@ for(i in 1:nrow(results)){
     rownames(counts)[idx] <- results$hgnc_symbol[i]
   }
 }
+
+#saving option for counts with gene names
 write.table(counts, "unprocessed_counts.tab", sep = "\t")
 
