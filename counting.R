@@ -35,14 +35,16 @@ write.table(stat, "Input_data/stat.tab", sep = "\t")
 ids <- rownames(counts) # gene names from counts
 ids <- gsub("\\.\\d*$", "", genes) # remove version tag
 ensembl_database <- useEnsembl(biomart="ensembl", 
-                      dataset="hsapiens_gene_ensembl") # open ensembl 
+                      dataset="hsapiens_gene_ensembl") # connect to ensemble database for gene names
 results <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"),
                  filter = "ensembl_gene_id", 
                  values = ids, mart = ensembl_database) # use genes to obtain hgnc_symbol
 
 #for each entry in results find corresponding tag
 for(i in 1:nrow(results)){
-  idx <- grep(paste(results$ensembl_gene_id[i], "\\.\\d*$", sep= ""), rownames(counts)) # find corresponding tag
+  idx <- grep(paste(results$ensembl_gene_id[i], 
+                    "\\.\\d*$", sep= ""), 
+              rownames(counts)) # find corresponding tag
   if (nchar(results$hgnc_symbol[i]) == 0){ # if gene result is bank replace with id
     rownames(counts)[idx] <- results$ensembl_gene_id[i]}
   else if (results$hgnc_symbol[i] %in% rownames(counts)){ # if symbol already used replaced with id

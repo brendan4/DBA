@@ -13,13 +13,14 @@ pheno.data <- read_csv("Output/data/pheno_out.txt")
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
 colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes tag from lib samples
 
-# updating pheno.data names to match count data
+# matching pheno.data names to count data
 idx <- which(gsub(".\\d*$", "",colnames(counts)) %in%
-               gsub("^121317.", "", pheno.data$library_ID)) # match earler hiseq rows
-pheno.data[which(pheno.data$lane=="earlier_HiseqRun"), "index_sequence"]<- colnames(counts)[idx] # using counts naming convention for ealier hiseqrun
+               gsub("^121317.", "", pheno.data$library_ID)) # match earlier hiseq rows
+pheno.data[which(pheno.data$lane=="earlier_HiseqRun"), 
+           "index_sequence"] <- colnames(counts)[idx] # using counts naming convention for earlier hiseq rows
 
-## removal of samples
-counts <- counts %>% dplyr::select(-contains("unmatched"))
+## Step: removal of samples
+counts <- counts %>% dplyr::select(-contains("unmatched")) # remove unmatched cols
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 
 # cor heat map: pre-removal
@@ -29,10 +30,10 @@ dev.off()
 
 # sample removals
 pheno.dis <- c("L6.TTAGGC", "L3.TTAGGC") # pheno discrepancy: gender and no pheno
-low.cor <- names(which(apply(cor.table, 2, mean) < 0.9)) # remove samples with cor > .9
+low.cor <- names(which(apply(cor.table, 2, mean) < 0.9)) # samples names with cor > 0.9
 remove <- c(low.cor, pheno.dis) 
 counts <- counts %>% dplyr::select(-one_of(remove)) # removing samples from counts
-pheno.data <- pheno.data[-which(!pheno.data$index_sequence %in% colnames(counts)),] # removing samples dropped from pheno
+pheno.data <- pheno.data[-which(!pheno.data$index_sequence %in% colnames(counts)),] # removing samples from pheno.data
 
 # cor heat map: post-removal
 cor.table <- cor(counts, method = "spearman") # spearman cor table
@@ -43,13 +44,14 @@ dev.off()
 # read stat for removed samples
 stat <- stat %>% pivot_longer(col= 2:ncol(stat), 
                               names_to = "sample" , 
-                              values_to = "count") %>% filter(count > 0)
+                              values_to = "count") %>% # piviting data for plotting
+  filter(count > 0) # filtering out stats with no counts 
 
 # ratio counting stats
-remove.stat <- stat[which(stat$sample %in% low.cor),]
+remove.stat <- stat[which(stat$sample %in% low.cor),] # subsetting removed samples 
 ggplot(remove.stat, aes(sample, count, fill = Status)) + 
   geom_bar(stat = "identity", position = "fill") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting by ratio
 dev.copy(png,'Output/Figures/Fig3-stat-removal-ratio.png') # saving options for figure
 dev.off()
 
@@ -57,7 +59,7 @@ dev.off()
 options(scipen=10000) # gets rid of scientific notations
 ggplot(remove.stat, aes(sample, count, fill = Status)) + 
   geom_bar(stat = "identity") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting out of ratio
 dev.copy(png,'Output/Figures/Fig4-stat-removal.png') # saving options for figure
 options(scipen=1)
 dev.off()
@@ -65,12 +67,12 @@ dev.off()
 # saving options
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
 
-# adding phenotype sto pheno.data
+# adding phenotype to pheno.data
 pheno.data <- pheno.data[match(rownames(pheno), pheno.data$index_sequence),] # matching with pheno
 pheno.data$pheno <- pheno$pheno # adding pheno data
 pheno.data$batch_number <- factor(pheno.data$batch_number) # factoring batch_number
 
-## DESeq2 analysis
+## Step: DESeq2 analysis - collasping replicates - no batch effects
 counts <- counts[,match(pheno.data$index_sequence, colnames(counts))] # ordering counts with pheno
 dds <- DESeqDataSetFromMatrix(countData = counts,
                               colData = pheno.data,
@@ -89,23 +91,24 @@ dev.copy(png,'Output/Figures/Fig5-PCA-individual.png') # saving options for figu
 dev.off()
 # batch_number labels
 ggplot(pcaData$data)  + 
-  geom_point(aes(PC1, PC2, color = pheno, shape = batch_number)) + # with replicate labels
+  geom_point(aes(PC1, PC2, color = pheno, shape = batch_number)) + # with batch shapes
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
 dev.copy(png,'Output/Figures/Fig6-PCA-batch-shape.png') # saving options for figure
 dev.off()
 
 # differential expression 
+dds <- collapseReplicates(dds, groupby = dds$individual_number)
 dds <- DESeq(dds)
 plotDispEsts(dds) # dispersion plot
 dev.copy(png,'Output/Figures/dispersion.png') # saving options for figure
 dev.off()
 
-res <- results(dds, contrast = c("pheno", "C", "S")) #specify group comparisons here
-summary(res)
+res <- results(dds, contrast = c("pheno", "C", "W")) #specify group comparisons here
+summary(res) # summary of results for group comparison
 
 # top results
-top <- rownames(res)[which(res$padj < 0.05)] # sig genes
+top <- rownames(res)[which(res$padj < 0.05)] # view names of sig genes 
 plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
 
 # MA plot
@@ -113,5 +116,5 @@ plotMA(res, ylim=c(-4,4))
 
 # skrinkage estimator
 resultsNames(dds) # select coef for srinkage
-resLFC <- lfcShrink(dds, coef = 4, type = "apeglm")
+resLFC <- lfcShrink(dds, coef = 3, type = "apeglm")
 plotMA(resLFC, ylim=c(-1,1))
