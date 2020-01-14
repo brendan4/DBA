@@ -2,6 +2,7 @@ library(tidyverse)
 library(DESeq2)
 library(pheatmap)
 library(ggplot2)
+library(readr)
 
 # importing data
 counts <- read.table("Input_data/unprocessed_counts.tab", row.names = 1, check.names = F)
@@ -25,7 +26,7 @@ cor.table <- cor(counts, method = "spearman") # spearman cor table
 
 # cor heat map: pre-removal
 pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
-dev.copy(png,'Output/Figures/Fig1-pre-removal.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig1-pre-removal.pdf') # saving options for figure
 dev.off()
 
 # sample removals
@@ -38,7 +39,7 @@ pheno.data <- pheno.data[-which(!pheno.data$index_sequence %in% colnames(counts)
 # cor heat map: post-removal
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
-dev.copy(png,'Output/Figures/Fig2-post-removal.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig2-post-removal.pdf') # saving options for figure
 dev.off()
 
 # read stat for removed samples
@@ -52,7 +53,7 @@ remove.stat <- stat[which(stat$sample %in% low.cor),] # subsetting removed sampl
 ggplot(remove.stat, aes(sample, count, fill = Status)) + 
   geom_bar(stat = "identity", position = "fill") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting by ratio
-dev.copy(png,'Output/Figures/Fig3-stat-removal-ratio.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig3-stat-removal-ratio.pdf') # saving options for figure
 dev.off()
 
 # counting stats
@@ -60,7 +61,7 @@ options(scipen=10000) # gets rid of scientific notations
 ggplot(remove.stat, aes(sample, count, fill = Status)) + 
   geom_bar(stat = "identity") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting out of ratio
-dev.copy(png,'Output/Figures/Fig4-stat-removal.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig4-stat-removal.pdf') # saving options for figure
 options(scipen=1)
 dev.off()
 
@@ -87,21 +88,21 @@ ggplot(pcaData$data)  +
   geom_text(aes(PC1, PC2, color = pheno), label = pheno$indiv) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
-dev.copy(png,'Output/Figures/Fig5-PCA-individual.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig5-PCA-individual.pdf') # saving options for figure
 dev.off()
 # batch_number labels
 ggplot(pcaData$data)  + 
-  geom_point(aes(PC1, PC2, color = pheno, shape = batch_number)) + # with batch shapes
+  geom_point(aes(PC1, PC2, color = batch_number)) + # with batch shapes
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x)
-dev.copy(png,'Output/Figures/Fig6-PCA-batch-shape.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/Fig6-PCA-batch-shape.pdf') # saving options for figure
 dev.off()
 
 # differential expression 
 dds <- collapseReplicates(dds, groupby = dds$individual_number)
 dds <- DESeq(dds)
 plotDispEsts(dds) # dispersion plot
-dev.copy(png,'Output/Figures/dispersion.png') # saving options for figure
+dev.copy(pdf,'Output/Figures/dispersion.pdf') # saving options for figure
 dev.off()
 
 res <- results(dds, contrast = c("pheno", "C", "W")) #specify group comparisons here

@@ -58,9 +58,11 @@ results <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"),
 
 #for each entry in results find corresponding tag
 for(i in 1:nrow(results)){
+  
   idx <- grep(paste(results$ensembl_gene_id[i], 
                     "\\.\\d*$", sep= ""), 
               rownames(counts)) # find corresponding tag
+  
   if (nchar(results$hgnc_symbol[i]) == 0){ # if gene result is bank replace with id
     rownames(counts)[idx] <- results$ensembl_gene_id[i]}
   else if (results$hgnc_symbol[i] %in% rownames(counts)){ # if symbol already used replaced with id
