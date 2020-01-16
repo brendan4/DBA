@@ -233,7 +233,8 @@ plotMA(resLFC, ylim=c(-1,1))
 # collapsing replicates without deseq
 sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
 countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
-idx <- sapply(sp, function(i) i[1]) #obtaining idx for each sample
+idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
 colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
-
+pheno.coll <- pheno.data[idx,] # collapsing pheno data
+countdata<- countdata[,match(pheno.coll$individual_number, colnames(countdata))] # ordering counts with pheno
 
