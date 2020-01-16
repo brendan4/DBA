@@ -12,11 +12,11 @@ pheno <- read.table("Input_data/pheno.tab",row.names = 1, check.names = F)
 stat <- read.table("Input_data/stat.tab", row.names = 1, check.names = F)
 pheno.data <- read_csv("Output/data/pheno_out.txt")
 
-# clean sample names
+# cleaning sample names
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
-colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes tag from lib samples
+colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes nonunique tag from lib samples
 
-# matching pheno.data names to count data
+# matching pheno.data lib names to count data convention
 idx <- which(gsub(".\\d*$", "",colnames(counts)) %in%
                gsub("^121317.", "", pheno.data$library_ID)) # match earlier hiseq rows
 pheno.data[which(pheno.data$lane=="earlier_HiseqRun"), 
@@ -26,11 +26,16 @@ pheno.data[which(pheno.data$lane=="earlier_HiseqRun"),
 counts <- counts %>% dplyr::select(-contains("unmatched")) # remove unmatched cols
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 
-
-# cor heat map: pre-removal; see if we can remove the dendrogram from one side
+# cor heat map: pre-removal
 breaksList = seq(0, 1, by = .01)
-h1 = pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7, breaks = breaksList,
+pheatmap(cor.table, 
+              fontsize_row = 7, 
+              fontsize_col = 7, 
+              breaks = breaksList,
+              treeheight_row = 0, # remove row dendrograms
+              na_col = "white",
               color = color.palette2(length(breaksList)) )
+
 dev.copy(pdf,'Output/Figures/Fig1-pre-removal.pdf') # saving options for figure
 dev.off()
 
@@ -43,7 +48,15 @@ pheno.data <- pheno.data[-which(!pheno.data$index_sequence %in% colnames(counts)
 
 # cor heat map: post-removal
 cor.table <- cor(counts, method = "spearman") # spearman cor table
-pheatmap(cor.table, fontsize_row = 7, fontsize_col = 7)
+breaksList = seq(0, 1, by = .01)
+pheatmap(cor.table, 
+         fontsize_row = 7, 
+         fontsize_col = 7, 
+         breaks = breaksList,
+         treeheight_row = 0, # remove row dendrograms
+         na_col = "white",
+         color = color.palette2(length(breaksList)) )
+
 dev.copy(pdf,'Output/Figures/post-removal.pdf') # saving options for figure
 dev.off()
 
@@ -51,21 +64,44 @@ dev.off()
 stat <- stat %>% pivot_longer(col= 2:ncol(stat), 
                               names_to = "sample" , 
                               values_to = "count") %>% # piviting data for plotting
-  filter(count > 0) # filtering out stats with no counts 
+  filter(count > 0) %>% # filtering out stats with no counts 
+  filter(Status != "Unassigned_Ambiguity") # filter out low rep stat 
 
-# ratio counting stats
-remove.stat <- stat[which(stat$sample %in% low.cor),] # subsetting removed samples 
-ggplot(remove.stat, aes(sample, count, fill = Status)) + 
-  geom_bar(stat = "identity", position = "fill") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting by ratio
+# mean statistics of kept samples
+kept.stat <- stat[which(!stat$sample %in% low.cor), ] %>% 
+  group_by(Status) %>% 
+  summarize(count = mean(count)) %>% 
+  mutate(sample = "Mean")
+remove.stat <- stat[which(stat$sample %in% low.cor), ] # statistics for remove samples only
+
+# ratio of counting stats
+ggplot() + 
+  geom_bar(data = remove.stat, 
+           aes(sample, count, fill = Status), 
+           stat = "identity", position = "fill") + 
+  geom_bar(data = kept.stat, 
+           aes(sample, count, fill = Status), 
+           stat = "identity", position = "fill") +
+  geom_text(data = remove.stat %>%
+              group_by(sample) %>% 
+              summarize(sums = sum(count)), 
+            aes(x = sample, label = sums, y = 1.025), 
+            size = 4, color = "gray25") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual("legend", values = c("Assigned" = "#FDD49E", 
+                         "Unassigned_NoFeatures" = "#EF6548",
+                         "Unassigned_Unmapped" = "#7F0000")) # colors from brewer.heat
+
 dev.copy(pdf,'Output/Figures/Fig2-stat-removal-ratio.pdf') # saving options for figure
 dev.off()
 
 # counting stats
 options(scipen=10000) # gets rid of scientific notations
+
 ggplot(remove.stat, aes(sample, count, fill = Status)) + 
   geom_bar(stat = "identity") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # plotting out of ratio
+
 dev.copy(pdf,'Output/Figures/stat-removal.pdf') # saving options for figure
 options(scipen=1)
 dev.off()
@@ -178,10 +214,3 @@ resultsNames(dds) # select coef for srinkage
 resLFC <- lfcShrink(dds, coef = 3, type = "apeglm")
 plotMA(resLFC, ylim=c(-1,1))
 
-
-data(iris)
-keep <- iris$Species %in% c("setosa", "versicolor")
-counts <- iris[keep, 1:4] * 10
-group <- ifelse(iris[keep, "Species"] == "setosa", "A", "B")
-group
-keep
