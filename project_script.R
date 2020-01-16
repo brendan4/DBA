@@ -207,7 +207,7 @@ dev.copy(pdf,'Output/Figures/Fig4-PCA-batch-shape.pdf') # saving options for fig
 dev.off()
 
 # differential expression 
-dds <- collapseReplicates(dds, groupby = dds$individual_number)
+dds <- collapseReplicates(dds, groupby = dds$tech)
 collapsed.counts <- "counts"(dds)
 dds <- DESeq(dds)
 plotDispEsts(dds) # dispersion plot
@@ -228,4 +228,12 @@ plotMA(res, ylim=c(-4,4))
 resultsNames(dds) # select coef for srinkage
 resLFC <- lfcShrink(dds, coef = 3, type = "apeglm")
 plotMA(resLFC, ylim=c(-1,1))
+
+
+# collapsing replicates without deseq
+sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
+countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
+idx <- sapply(sp, function(i) i[1]) #obtaining idx for each sample
+colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
+
 
