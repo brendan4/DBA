@@ -22,6 +22,21 @@ idx <- which(gsub(".\\d*$", "",colnames(counts)) %in%
 pheno.data[which(pheno.data$lane=="earlier_HiseqRun"), 
            "index_sequence"] <- colnames(counts)[idx] # using counts naming convention for earlier hiseq rows
 
+# forming tech rep information 
+pheno.data <- pheno.data %>% mutate (tech = gsub("^\\d+_", "", pheno.data$library_ID) ) 
+
+# creating better names for samples
+indiv <- unique(pheno.data$individual_number)
+for( i in 1:length(indiv) ) { # cycle through each individual
+  idx <- which(pheno.data$individual_number %in% indiv[i]) # match all entries that belong to a individual
+  samples <- unique(pheno.data$tech[idx]) # unique samples 
+  for( j in 1:length(samples) ) { # cycle through each sample for that individual
+    idx1 <- which(pheno.data$tech %in% samples[j]) # obtain idx for all entries with belong to a sample
+    name <- paste(indiv[i], "_s", j, sep = "") # forming new name 
+    pheno.data$individual_number[idx1] <- name # replacing old name
+  }
+}
+
 ## Step: removal of samples
 counts <- counts %>% dplyr::select(-contains("unmatched")) # remove unmatched cols
 cor.table <- cor(counts, method = "spearman") # spearman cor table
