@@ -44,12 +44,12 @@ cor.table <- cor(counts, method = "spearman") # spearman cor table
 # cor heat map: pre-removal
 breaksList = seq(0, 1, by = .01)
 pheatmap(cor.table, 
-              fontsize_row = 7, 
-              fontsize_col = 7, 
-              breaks = breaksList,
-              treeheight_row = 0, # remove row dendrograms
-              na_col = "white",
-              color = color.palette2(length(breaksList)) )
+         fontsize_row = 7, 
+         fontsize_col = 7, 
+         breaks = breaksList,
+         treeheight_row = 0, # remove row dendrograms
+         na_col = "white",
+         color = color.palette2(length(breaksList)) )
 
 dev.copy(pdf,'Output/Figures/Fig1-pre-removal.pdf') # saving options for figure
 dev.off()
@@ -62,6 +62,8 @@ counts <- counts %>% dplyr::select(-one_of(remove)) # removing samples from coun
 pheno.data <- pheno.data[-which(!pheno.data$index_sequence %in% colnames(counts)),] # removing samples from pheno.data
 
 # cor heat map: post-removal
+colSums(counts)
+boxplot(colSums(counts))
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 breaksList = seq(0, 1, by = .01)
 pheatmap(cor.table, 
@@ -104,8 +106,8 @@ ggplot() +
             size = 4, color = "gray25") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual("legend", values = c("Assigned" = "#FDD49E", 
-                         "Unassigned_NoFeatures" = "#EF6548",
-                         "Unassigned_Unmapped" = "#7F0000")) # colors from brewer.heat
+                                         "Unassigned_NoFeatures" = "#EF6548",
+                                         "Unassigned_Unmapped" = "#7F0000")) # colors from brewer.heat
 
 dev.copy(pdf,'Output/Figures/Fig2-stat-removal-ratio.pdf') # saving options for figure
 dev.off()
@@ -129,11 +131,22 @@ pheno.data <- pheno.data[match(rownames(pheno), pheno.data$index_sequence),] # m
 pheno.data$pheno <- pheno$pheno # adding pheno data
 pheno.data$batch_number <- factor(pheno.data$batch_number) # factoring batch_number
 
+
+
+# collapsing replicates without deseq
+sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
+countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
+idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
+colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
+pheno.coll <- pheno.data[idx,] # collapsing pheno data
+pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
+countdata<- countdata[,match(pheno.coll$individual_number, colnames(countdata))] # ordering counts with pheno
+
 ## Step: propd analysis
 # Extract counts for ribosomal proteins to analyze differential proportionality
-rp = grep ( "^RP[L|S]", row.names(counts), perl =T ) 
-rps6k = grep ( "RPS6K", row.names(counts)) 
-dash = grep ("-", row.names(counts))
+rp = grep ( "^RP[L|S]", row.names(countdata), perl =T ) 
+rps6k = grep ( "RPS6K", row.names(countdata)) 
+dash = grep ("-", row.names(countdata))
 rp = setdiff(rp, rps6k) 
 rp = setdiff(rp, dash)
 # Will remove RPS4Y1, Y2 and X for proportionality
@@ -141,40 +154,59 @@ to_remove = c(82, 83, 87, 88)
 # Will keep all the RP-like proteins for now. 
 rp = rp[-to_remove]
 row.names(counts)[rp] 
-rp_counts = t( counts[rp, ] ) 
+rp_counts = t( countdata[rp, ] ) 
 
 #droping s from pheno.data
-idx <- which(pheno.data$pheno == "S")
-pheno.data[idx] <- "C"
-pheno.data$pheno <- factor(pheno.data$pheno)
+idx <- which(pheno.coll$pheno == "S")
+pheno.coll$pheno[idx] <- "C"
+pheno.coll$pheno <- factor(pheno.coll$pheno)
 
 # There is an option to add voom weights using weighted = T
 # Unclear to me whether this would be appropriate if using rp counts alone
 # alpha is a positive and its value is used. 
-pd = propd(rp_counts, as.character(pheno.data$pheno), alpha= NA, p = 1000 ) 
+pd = propd(rp_counts, as.character(pheno.coll$pheno), alpha= NA, p = 1000 ) 
 # Figure out the difference between disjointed and emergent
 # We seem to like emergent based on the description
 theta_e <- setEmergent(pd)
-theta_e = updateCutoffs(theta_e, cutoff = seq(0.01, 0.91, 0.3))
+theta_e = updateCutoffs(theta_e, cutoff = seq(0.05, 0.95, 0.3))
 tab <- getResults(theta_e)
-# Plot RPL4 and RPS3
+# Plot RPL4 and RPL22
 plot(theta_e@counts[, grep ("^RPL4$", colnames(theta_e@counts)  ) ], 
-     theta_e@counts[, grep ("^RPS3$", colnames(theta_e@counts)  ) ], 
+     theta_e@counts[, grep ("^RPL22$", colnames(theta_e@counts)  ) ], 
      col = ifelse(theta_e@group == "C", "red", "blue"))
 
 grp1 <- theta_e@group == "C"
 grp2 <- theta_e@group == "W"
-abline(a = 0, b = theta_e@counts[grp1, grep ("^RPS3$", colnames(theta_e@counts)  ) ] /
+abline(a = 0, b = theta_e@counts[grp1, grep ("^RPL22$", colnames(theta_e@counts)  ) ] /
          theta_e@counts[grp1, grep ("^RPL4$", colnames(theta_e@counts)  ) ], col = "red")
-abline(a = 0, b = theta_e@counts[grp2, grep ("^RPS3$", colnames(theta_e@counts)  ) ] / 
+abline(a = 0, b = theta_e@counts[grp2, grep ("^RPL22$", colnames(theta_e@counts)  ) ] / 
          theta_e@counts[grp2, grep ("^RPL4$", colnames(theta_e@counts)  ) ], col = "blue")
 
 plot(theta_e@counts[, grep ("^RPL4$", colnames(theta_e@counts)  )] / 
-       theta_e@counts[, grep ("^RPS3$", colnames(theta_e@counts)  )],
+       theta_e@counts[, grep ("^RPL22$", colnames(theta_e@counts)  )],
      col = ifelse(theta_e@group == "C", "red", "blue"))
 
-# # RPL11 is not in the top list
 # parallel(theta_e, include = "RPL4")
+
+## To generate the graph of variance, we will need to calculate variance of log-ratios for the two groups
+## VLR (X, Y) = var (log (X/Y))
+## We will do a nested for-loop if there is a more clever algorithm feel free to implement
+carrier_wt_vlr = matrix(nrow = (84*83) / 2, ncol = 2, dimnames = list(c(rep("NA", 84*83/2)) ,c("C", "W")))
+#colnames(carrier_wt_vlr) = c("C", "W")
+#rownames(carrier_wt_vlr) = c(rep("NA", 84*83/2))
+row_id = 1
+vlr = function (x,y) { 
+  return ( var ( log(x/y) ) ) 
+}
+for ( rp_ind in 1:dim(rp_counts)[2] ) { 
+  for (rp2_ind in seq( (rp_ind+1), dim(rp_counts)[2]) )  {
+    pair_name = paste( colnames(rp_counts)[rp_ind], colnames(rp_counts)[rp2_ind], sep = "_" )
+    row.names(carrier_wt_vlr)[row_id] = pair_name
+    carrier_wt_vlr[row_id, "C"] = vlr ( rp_counts[pheno.coll$pheno == "C",rp_ind], rp_counts[pheno.coll$pheno == "C",rp2_ind])
+    carrier_wt_vlr[row_id, "W"] =  vlr ( rp_counts[pheno.coll$pheno == "W",rp_ind], rp_counts[pheno.coll$pheno == "W",rp2_ind]) 
+    row_id = row_id + 1
+  }
+}
 
 
 ## Step: DESeq2 analysis - collasping replicates - no batch effects
@@ -229,12 +261,4 @@ resultsNames(dds) # select coef for srinkage
 resLFC <- lfcShrink(dds, coef = 3, type = "apeglm")
 plotMA(resLFC, ylim=c(-1,1))
 
-
-# collapsing replicates without deseq
-sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
-countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
-idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
-colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
-pheno.coll <- pheno.data[idx,] # collapsing pheno data
-countdata<- countdata[,match(pheno.coll$individual_number, colnames(countdata))] # ordering counts with pheno
 
