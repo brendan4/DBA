@@ -184,7 +184,7 @@ dev.off()
 
 # batch_number labels
 ggplot(pcaData$data)  + 
-  geom_point(aes(PC1, PC2, color = batch_number)) + # with batch shapes
+  geom_point(aes(PC1, PC2, color = batch_number), size = 2) + # with batch shapes
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x) + 
   scale_color_manual(values = c("#CC79A7", "#0072B2", "#F0E442", "#D55E00"))
