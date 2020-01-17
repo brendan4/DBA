@@ -134,6 +134,7 @@ pheno.data$batch_number <- factor(pheno.data$batch_number) # factoring batch_num
 
 
 # collapsing replicates without deseq
+counts <- counts[,match(pheno.data$index_sequence, colnames(counts))] # ordering counts with pheno
 sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
 countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
 idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
@@ -170,23 +171,25 @@ pd = propd(rp_counts, as.character(pheno.coll$pheno), alpha= NA, p = 1000 )
 theta_e <- setEmergent(pd)
 theta_e = updateCutoffs(theta_e, cutoff = seq(0.05, 0.95, 0.3))
 tab <- getResults(theta_e)
-# Plot RPL4 and RPL22
-plot(theta_e@counts[, grep ("^RPL4$", colnames(theta_e@counts)  ) ], 
-     theta_e@counts[, grep ("^RPL22$", colnames(theta_e@counts)  ) ], 
+# Plot RPL27 and RPS3A
+plot(theta_e@counts[, grep ("^RPL27$", colnames(theta_e@counts)  ) ], 
+     theta_e@counts[, grep ("^RPS3A$", colnames(theta_e@counts)  ) ], 
      col = ifelse(theta_e@group == "C", "red", "blue"))
 
 grp1 <- theta_e@group == "C"
 grp2 <- theta_e@group == "W"
-abline(a = 0, b = theta_e@counts[grp1, grep ("^RPL22$", colnames(theta_e@counts)  ) ] /
-         theta_e@counts[grp1, grep ("^RPL4$", colnames(theta_e@counts)  ) ], col = "red")
-abline(a = 0, b = theta_e@counts[grp2, grep ("^RPL22$", colnames(theta_e@counts)  ) ] / 
-         theta_e@counts[grp2, grep ("^RPL4$", colnames(theta_e@counts)  ) ], col = "blue")
+abline(a = 0, b = theta_e@counts[grp1, grep ("^RPS3A$", colnames(theta_e@counts)  ) ] /
+         theta_e@counts[grp1, grep ("^RPL27$", colnames(theta_e@counts)  ) ], col = "red")
+abline(a = 0, b = theta_e@counts[grp2, grep ("^RPS3A$", colnames(theta_e@counts)  ) ] / 
+         theta_e@counts[grp2, grep ("^RPL27$", colnames(theta_e@counts)  ) ], col = "blue")
 
-plot(theta_e@counts[, grep ("^RPL4$", colnames(theta_e@counts)  )] / 
-       theta_e@counts[, grep ("^RPL22$", colnames(theta_e@counts)  )],
+plot(theta_e@counts[, grep ("^RPL27$", colnames(theta_e@counts)  )] / 
+       theta_e@counts[, grep ("^RPS3A$", colnames(theta_e@counts)  )],
      col = ifelse(theta_e@group == "C", "red", "blue"))
 
-# parallel(theta_e, include = "RPL4")
+plot(colMeans(rp_counts[which(pheno.coll$pheno == "C"), ]), colMeans(rp_counts[which(pheno.coll$pheno == "W"), ]))
+boxplot(rp_counts[which(pheno.coll$pheno == "C"), "RPL11"], rp_counts[which(pheno.coll$pheno == "W"), "RPL11"])
+# parallel(theta_e, include = "RPL27")
 
 ## To generate the graph of variance, we will need to calculate variance of log-ratios for the two groups
 ## VLR (X, Y) = var (log (X/Y))
