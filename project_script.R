@@ -165,7 +165,8 @@ pheno.coll$pheno <- factor(pheno.coll$pheno)
 # There is an option to add voom weights using weighted = T
 # Unclear to me whether this would be appropriate if using rp counts alone
 # alpha is a positive and its value is used. 
-pd = propd(rp_counts, as.character(pheno.coll$pheno), alpha= NA, p = 1000 ) 
+pd = propd(rp_counts, as.character(pheno.coll$pheno), alpha= NA, p = 1000 )  
+
 # Figure out the difference between disjointed and emergent
 # We seem to like emergent based on the description
 theta_e <- setEmergent(pd)
@@ -187,16 +188,35 @@ plot(theta_e@counts[, grep ("^RPL27$", colnames(theta_e@counts)  )] /
        theta_e@counts[, grep ("^RPS3A$", colnames(theta_e@counts)  )],
      col = ifelse(theta_e@group == "C", "red", "blue"))
 
+# basic plots 
 plot(colMeans(rp_counts[which(pheno.coll$pheno == "C"), ]), colMeans(rp_counts[which(pheno.coll$pheno == "W"), ]))
 boxplot(rp_counts[which(pheno.coll$pheno == "C"), "RPL11"], rp_counts[which(pheno.coll$pheno == "W"), "RPL11"])
-# parallel(theta_e, include = "RPL27")
+ggplot(tab, aes(x = lrv1, y = lrv2)) + geom_point() + geom_abline(intercept = 0, color = "red")
+
+# making data long format for ggplot 
+rp_long <- as.data.frame(rp_counts)
+rp_long$indiv <- rownames(rp_long)
+rp_long <- rp_long %>% pivot_longer( cols = 1:84, names_to = "genes", values_to = c("counts"))
+rp_long <- rp_long %>% mutate(pheno = case_when(  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
+                                    rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W"  ))
+# box plot of genes
+rp_long %>% filter(genes == 'RPL11') %>%
+  ggplot(aes(x = pheno, y = counts)) + 
+  labs(title = "RPL11 counts", y = "Counts", x = "Phenotype") + 
+  geom_boxplot(aes(fill = pheno), outlier.colour="black", outlier.shape=1, outlier.size=3)
+
+dev.copy(pdf,'Output/Figures/RPL11-counts.pdf') # saving options for figure
+dev.off()
+
+
+parallel(theta_e, include = "RPL27")
 
 ## To generate the graph of variance, we will need to calculate variance of log-ratios for the two groups
 ## VLR (X, Y) = var (log (X/Y))
 ## We will do a nested for-loop if there is a more clever algorithm feel free to implement
-carrier_wt_vlr = matrix(nrow = (84*83) / 2, ncol = 2, dimnames = list(c(rep("NA", 84*83/2)) ,c("C", "W")))
-#colnames(carrier_wt_vlr) = c("C", "W")
-#rownames(carrier_wt_vlr) = c(rep("NA", 84*83/2))
+gene.num <- ncol(rp_counts)
+carrier_wt_vlr = matrix(nrow = (gene.num*(gene.num-1) )/ 2, ncol = 2, dimnames = list(c(rep("NA", gene.num*(gene.num-1)/2)) ,c("C", "W")))
+
 row_id = 1
 vlr = function (x,y) { 
   return ( var ( log(x/y) ) ) 
