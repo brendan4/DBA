@@ -232,6 +232,11 @@ for ( rp_ind in 1:dim(rp_counts)[2] ) {
 }
 
 
+# OPTIONAL: droping s from pheno.data
+idx <- which(pheno.data$pheno == "S")
+pheno.data$pheno[idx] <- "C"
+pheno.data$pheno <- factor(pheno.data$pheno)
+
 ## Step: DESeq2 analysis - collasping replicates - no batch effects
 counts <- counts[,match(pheno.data$index_sequence, colnames(counts))] # ordering counts with pheno
 dds <- DESeqDataSetFromMatrix(countData = counts,
@@ -248,7 +253,8 @@ pcaData <- DESeq2::plotPCA(vsd, intgroup = c("pheno","batch_number"))
 ggplot(pcaData$data)  + 
   geom_text(aes(PC1, PC2, color = pheno), label = pheno.data$individual_number) + # with replicate labels
   ylab(pcaData$labels$y) +
-  xlab(pcaData$labels$x)
+  xlab(pcaData$labels$x) + 
+  scale_color_manual(values = c("#547294", "#d11f12"))
 dev.copy(pdf,'Output/Figures/Fig3-PCA-individual.pdf') # saving options for figure
 dev.off()
 
