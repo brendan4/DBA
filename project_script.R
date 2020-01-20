@@ -1,10 +1,14 @@
-library(tidyverse)
+ibrary(tidyverse)
 library(DESeq2)
 library(pheatmap)
 library(ggplot2)
 library(readr)
 library(propr)
 source ('./mapCode-colors.r')
+
+library('variancePartition')
+library('limma')
+library('edgeR')
 
 # importing data
 counts <- read.table("Input_data/unprocessed_counts.tab", row.names = 1, check.names = F)
@@ -150,8 +154,10 @@ rps6k = grep ( "RPS6K", row.names(countdata))
 dash = grep ("-", row.names(countdata))
 rp = setdiff(rp, rps6k) 
 rp = setdiff(rp, dash)
+row.names(counts)[rp] 
+grep ( "L1$", row.names(counts)[rp] , perl = T )
 # Will remove RPS4Y1, Y2 and X for proportionality
-to_remove = c(82, 83, 87, 88)
+to_remove = c(16, 17, 25, 50, 57, 82, 83, 87, 88)
 # Will keep all the RP-like proteins for now. 
 rp = rp[-to_remove]
 row.names(counts)[rp] 
@@ -198,7 +204,7 @@ rp_long <- as.data.frame(rp_counts)
 rp_long$indiv <- rownames(rp_long)
 rp_long <- rp_long %>% pivot_longer( cols = 1:84, names_to = "genes", values_to = c("counts"))
 rp_long <- rp_long %>% mutate(pheno = case_when(  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
-                                    rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W"  ))
+                                                  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W"  ))
 # box plot of genes
 rp_long %>% filter(genes == 'RPL11') %>%
   ggplot(aes(x = pheno, y = counts)) + 
@@ -254,7 +260,7 @@ ggplot(pcaData$data)  +
   geom_text(aes(PC1, PC2, color = pheno), label = pheno.data$individual_number) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x) + 
-  scale_color_manual(values = c("#547294", "#d11f12"))
+  scale_color_manual(values = c("#547294", "#d11f12", "#F0E442"))
 dev.copy(pdf,'Output/Figures/Fig3-PCA-individual.pdf') # saving options for figure
 dev.off()
 
@@ -291,3 +297,34 @@ resLFC <- lfcShrink(dds, coef = 3, type = "apeglm")
 plotMA(resLFC, ylim=c(-1,1))
 
 
+## Adding dream/voom/limma for mixed effects model of differential expression 
+# Will use countdata -> technical replicates collapsed 
+# Matching phenotypes are in pheno.coll
+
+# 1/3 of the samples is a good starting point
+isexpr = rowSums(cpm (countdata) > 1 ) >= 10
+geneExpr = DGEList( countdata[isexpr, ])
+geneExpr = calcNormFactors( geneExpr, method = "TMM")
+
+design_DE = as.data.frame ( pheno.coll[,c(3, 9)] ) 
+design_DE$Individual = sapply ( strsplit(design_DE$individual_number , split = "_"), "[[" , 1 ) 
+design_DE$StatusSubType = as.character( design_DE$pheno ) 
+design_DE$StatusSubType[11:14 ] = rep ( "S" , 4 ) 
+design_DE = design_DE [, -1]
+row.names(design_DE) = colnames(countdata)
+
+
+## We will apply dream to fit the mixed effects model 
+form <- ~ pheno + (1|Individual)
+vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
+fitmm = dream(vobjDream, form, design_DE)
+fitmm$design
+
+topTable ( fitmm, coef = "phenoW", number = 20)
+
+# We can alternatively fit with three levels
+form <- ~ StatusSubType + (1|Individual)
+vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
+fitmm = dream(vobjDream, form, design_DE)
+head ( fitmm$design ) 
+topTable ( fitmm, coef = "phenoW", number = 20)
