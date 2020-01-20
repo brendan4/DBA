@@ -1,4 +1,4 @@
-ibrary(tidyverse)
+library(tidyverse)
 library(DESeq2)
 library(pheatmap)
 library(ggplot2)
