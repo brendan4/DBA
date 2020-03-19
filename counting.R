@@ -40,7 +40,7 @@ anno <- list.files(pattern = ".gz$", full.names = TRUE) # sets annotation locati
 fc <- featureCounts(bam.files, 
                     annot.ext= anno, 
                     isGTFAnnotationFile = T,
-                    isPairedEnd=TRUE) 
+                    isPairedEnd=TRUE, countMultiMappingReads = F) 
 
 #extracting data
 counts <- fc$counts
