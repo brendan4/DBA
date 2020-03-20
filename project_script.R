@@ -58,7 +58,7 @@ for( i in 1:length(indiv) ) { # cycle through each individual
 }
 
 
-#unifying names
+# unifying names
 counts <- counts[,match(pheno.data$index_sequence, colnames(counts))] # ordering counts with pheno
 colnames(counts) <- pheno.data$individual_number # replacing colnames of counts 
 stat[2:ncol(stat)] <- stat[,match(pheno.data$index_sequence, colnames(stat) )] # ordering stat with pheno
@@ -168,7 +168,7 @@ dev.off()
 # saving options
 write.table(counts, "Output/Data/counts.tab", sep = "\t")
 
-#removal of samples from pheno
+# removal of samples from pheno
 pheno.data <- pheno.data[-which(!pheno.data$individual_number %in% colnames(counts)),] # removing samples from pheno.data
 # adding phenotype to pheno.data
 pheno.data <- pheno.data[match(rownames(pheno), pheno.data$index_sequence),] # matching with pheno
@@ -202,17 +202,20 @@ row.names(countdata)[rp]
 rp_counts = t( countdata[rp, ] ) 
 rowMeans(countdata[rp, ])
 
-#droping s from pheno.data
+
+#OPTIONAL
+# droping s from pheno.data
 idx <- which(pheno.coll$pheno == "S")
 pheno.coll$pheno[idx] <- "C"
 pheno.coll$pheno <- factor(pheno.coll$pheno)
 
+#OPTIONAL
 # changing C to mutation
 idx <- which(pheno.coll$pheno == "C")
 pheno.coll$pheno <- as.character(pheno.coll$pheno)
 pheno.coll$pheno[idx] <- "c.396+3A>G"
 
-
+#OPTIONAL
 # wiltype to non-C 
 idx <- which(pheno.coll$pheno == "W")
 pheno.coll$pheno <- as.character(pheno.coll$pheno)
@@ -297,9 +300,10 @@ sum(colMeans(rp_counts[which(pheno.coll$pheno == "C"), ])/ colMeans(rp_counts[wh
 # making data long format for ggplot 
 rp_long <- as.data.frame(rp_counts)
 rp_long$indiv <- rownames(rp_long)
-rp_long <- rp_long %>% pivot_longer( cols = 1:78, names_to = "genes", values_to = c("counts"))
+rp_long <- rp_long %>% pivot_longer( cols = 1:(ncol(rp_long) -1), names_to = "genes", values_to = c("counts"))
 rp_long <- rp_long %>% mutate(pheno = case_when(  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
-                                                  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W"  ))
+                                                  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
+                                                  rp_long$indiv %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
 # box plot of genes
 rp_long %>% filter(genes == 'RPL11') %>%
   ggplot(aes(x = pheno, y = counts)) + 
@@ -396,10 +400,14 @@ resultsNames(dds)
 # filtering 
 plot(metadata(res)$filterNumRej, type="b", xlab="quantiles of 'baseMean'",
      ylab="number of rejections")
+dev.copy(pdf,'Output/Figures/DESeq-flitering.pdf') # saving options for figure
+dev.off()
 
 # top results
 top <- rownames(res)[which(res$padj < 0.05)] # view names of sig genes 
 plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
+dev.copy(pdf,'Output/Figures/RPL11-pheno.pdf') # saving options for figure
+dev.off()
 
 write.table(x = data.frame(gene = rownames(res)[which(res$padj < 0.05)], 
                            logfold = res$log2FoldChange[which(res$padj < 0.05)],  
@@ -409,6 +417,7 @@ deseq.data = data.frame(gene = rownames(res)[which(res$padj < 0.05)],
                logfold = res$log2FoldChange[which(res$padj < 0.05)],  
                padj = res$padj[which(res$padj < 0.05)], basemean = res$baseMean[which(res$padj < 0.05)])
 
+# ploting specific genes
 norm <- counts(dds, normalized=TRUE)
 gene.plot <- t(norm[ which(rownames(norm) %in% c("RPL11", "CDK11A", "CRIM1", "GATA2", "MCC")), ])
 carr.pheno <- pheno.data[which(pheno.data$pheno == "C"), ]
@@ -427,6 +436,8 @@ ggplot() + geom_point(data = wild.genes, aes(y = RPL11, x = "W"), color = "#5472
   geom_bar(data = carr.means, aes(y = RPL11, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
   labs(x = "Genotype", y = "RPL11 Normalized")+
   theme_classic()
+dev.copy(pdf,'Output/Figures/RPL11.pdf') # saving options for figure
+dev.off()
 
 ggplot() + geom_point(data = wild.genes, aes(y = CDK11A, x = "Non-carriers"), color = "#547294") + 
   geom_point(data = carr.genes, aes(y= CDK11A, x = "c.396+3A>G"), color = "#d11f12") + 
@@ -434,6 +445,8 @@ ggplot() + geom_point(data = wild.genes, aes(y = CDK11A, x = "Non-carriers"), co
   geom_bar(data = carr.means, aes(y = CDK11A, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
   labs(x = "Genotype", y = "CDK11A Normalized")+
   theme_classic()
+dev.copy(pdf,'Output/Figures/CDK11A.pdf') # saving options for figure
+dev.off()
 
 ggplot() + geom_point(data = wild.genes, aes(y = CRIM1, x = "Non-carriers"), color = "#547294") + 
   geom_point(data = carr.genes, aes(y= CRIM1, x = "c.396+3A>G"), color = "#d11f12") + 
@@ -441,6 +454,8 @@ ggplot() + geom_point(data = wild.genes, aes(y = CRIM1, x = "Non-carriers"), col
   geom_bar(data = carr.means, aes(y = CRIM1, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
   labs(x = "Genotype", y = "CRIM1 Normalized")+
   theme_classic()
+dev.copy(pdf,'Output/Figures/CRIM1.pdf') # saving options for figure
+dev.off()
 
 ggplot() + geom_point(data = wild.genes, aes(y = GATA2, x = "Non-carriers"), color = "#547294") + 
   geom_point(data = carr.genes, aes(y= GATA2, x = "c.396+3A>G"), color = "#d11f12") + 
@@ -448,6 +463,8 @@ ggplot() + geom_point(data = wild.genes, aes(y = GATA2, x = "Non-carriers"), col
   geom_bar(data = carr.means, aes(y = GATA2, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
   labs(x = "Genotype", y = "GATA2 Normalized")+
   theme_classic()
+dev.copy(pdf,'Output/Figures/GATA2.pdf') # saving options for figure
+dev.off()
 
 ggplot() + geom_point(data = wild.genes, aes(y = MCC, x = "Non-carriers"), color = "#547294") + 
   geom_point(data = carr.genes, aes(y= MCC, x = "c.396+3A>G"), color = "#d11f12") + 
@@ -455,17 +472,21 @@ ggplot() + geom_point(data = wild.genes, aes(y = MCC, x = "Non-carriers"), color
   geom_bar(data = carr.means, aes(y = MCC, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
   labs(x = "Genotype", y = "MCC Normalized")+
   theme_classic()
+dev.copy(pdf,'Output/Figures/MCC.pdf') # saving options for figure
+dev.off()
 
 
 # MA plot
-plotMA(res, ylim=c(-4,4), alpha = 0.05) 
+DESeq2::plotMA(res, ylim=c(-4,4)) 
 text(600,3, label = "Non-carriers")
 text(600,-3, label = "c.396+3A>G" , col = "dodgerblue4")
+dev.copy(pdf,'Output/Figures/MA-plot.pdf') # saving options for figure
+dev.off()
 
 # skrinkage estimator
-resultsNames(dds) # select coef for srinkage
-resLFC <- lfcShrink(dds, coef = "pheno_W_vs_C", type = "ashr")
-plotMA(resLFC, ylim=c(-3,3))
+DESeq2::resultsNames(dds) # select coef for srinkage
+resLFC <- DESeq2::lfcShrink(dds, coef = "pheno_W_vs_C", type = "ashr")
+DESeq2::plotMA(resLFC, ylim=c(-3,3))
 
 
 ## Adding dream/voom/limma for mixed effects model of differential expression 
@@ -502,12 +523,24 @@ limma$gene_names <- rownames(limma)
 colnames(limma) <- paste("dream", colnames(limma), sep = "_")
 limma.both <- limma[which(rownames(limma) %in% deseq.data$gene), ]
 
+#exporting limma data
 merged.tables <- merge(deseq.data, limma.both, by.x = "gene", by.y = "dream_gene_names")
 write.table(merged.tables, file = "dseq-dream.csv", sep = ",")
 
 
 
+## STEP: ribosome plots
+# collapsing replicates without deseq
+counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
+sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
+countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
+idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
+colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
+pheno.coll <- pheno.data[idx,] # collapsing pheno data
+pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
 
+# plotting ribosomal genes
+norm <- counts(dds, normalized=TRUE)
 norm <- norm[,match(pheno.coll$tech, colnames(norm))] # ordering counts with pheno
 
 rp = grep ( "^RP[L|S]", row.names(norm), perl =T ) 
@@ -539,16 +572,31 @@ car.idx <- pheno.coll$tech[which(pheno.coll$pheno == "C")]
 # large subunit 
 par(mfrow=c(1,2))
 boxplot(colSums(rpl_counts[, which(colnames(rpl_counts) %in% wild.idx)]), ylim = c(60000, 150000))
-title("Wildtype - large subunit")
+title("Noncarrier - large subunit")
 boxplot(colSums(rpl_counts[, which(colnames(rpl_counts) %in% car.idx)]), ylim = c(60000, 150000))
-title("Carrier - large subunit")
+title("c.396+3A>G - large subunit")
+dev.copy(pdf,'Output/Figures/large-ribo-boxplot.pdf') # saving options for figure
+dev.off()
 
 # small subunit 
 par(mfrow=c(1,2))
 boxplot(colSums(rps_counts[,which(colnames(rps_counts) %in% wild.idx)]), yim = c(40000, 80000))
-title("Wildtype - small subunit")
+title("Noncarrier - small subunit")
 boxplot(colSums(rps_counts[,which(colnames(rps_counts) %in% car.idx)]), yim = c(40000, 80000))
-title("Carrier- small subunit")
+title("c.396+3A>G- small subunit")
+dev.copy(pdf,'Output/Figures/small-ribo-boxplot.pdf') # saving options for figure
+dev.off()
 
+rpl_counts <- rpl_counts[,match(pheno.coll$tech, colnames(rpl_counts))] # ordering counts with pheno
+rpl_long <- as.data.frame(rpl_counts)
+colnames(rpl_long) <- pheno.coll$individual_number
+rpl_long$indiv <- rownames(rpl_long)
+rpl_long <- rpl_long %>% pivot_longer(cols = 1:(ncol(rpl_long)-1), names_to = "sample", values_to = c("counts"))
+rpl_long<- rpl_long %>% mutate(pheno = case_when(rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
+                                                  rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
+                                                  rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
 
-
+rpl_long %>% ggplot(aes(x = indiv, y = counts)) + 
+  geom_point() + 
+  facet_grid(~pheno) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
