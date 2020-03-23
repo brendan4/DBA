@@ -91,20 +91,6 @@ remove <- c(low.cor, pheno.sex)
 counts <- counts %>% dplyr::select(-one_of(remove)) # removing samples from counts
 
 
-
-#boxplot of counts
-colsum <- as.data.frame( colSums(counts))
-colsum$name <- rownames(colsum)
-colnames(colsum) <- c("count", "names")
-boxp1 <- ggplot(colsum) + 
-  geom_boxplot(outlier.colour = "red", outlier.shape = 1, aes(y = count)) +
-  ylab("Assigned Counts") +
-  theme(axis.text.x = element_blank()) 
-boxp1
-
-dev.copy(pdf,'Output/Figures/assigned-boxplot.pdf') # saving options for figure
-dev.off()
-
 # cor heat map: post-removal
 cor.table <- cor(counts, method = "spearman") # spearman cor table
 breaksList = seq(0, 1, by = .01)
@@ -125,6 +111,11 @@ stat <- stat %>% pivot_longer(col= 2:ncol(stat),
                               values_to = "count") %>% # piviting data for plotting
   filter(count > 0) %>% # filtering out stats with no counts 
   filter(Status != "Unassigned_Ambiguity") # filter out low rep stat 
+
+stat <- stat %>% mutate(Status = 
+                          case_when(Status == "Assigned" ~ "Mapped", 
+                                    Status == "Unassigned_NoFeatures" ~ "Mapped", 
+                                    Status == "Unassigned_Unmapped" ~ "Unmapped"))
 
 # mean statistics of kept samples
 kept.stat <- stat[which(!stat$sample %in% low.cor), ] %>% 
@@ -147,9 +138,9 @@ ggplot() +
             aes(x = sample, label = sums, y = 1.025), 
             size = 4, color = "gray25") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual("legend", values = c("Assigned" = "#7F0000", 
-                                         "Unassigned_NoFeatures" = "#EF6548",
-                                         "Unassigned_Unmapped" = "#FDD49E")) # colors from brewer.heat
+  scale_fill_manual("legend", values = c("Mapped" = "#7F0000",
+                                         "Unmapped" = "#FDD49E")) # colors from brewer.heat
+#scale_fill_manual("legend", values = c("Assigned" = "#7F0000", "Unassigned_NoFeatures" = "#EF6548","Unassigned_Unmapped" = "#FDD49E")) # colors from brewer.heat
 
 dev.copy(pdf,'Output/Figures/Fig2-stat-removal-ratio.pdf') # saving options for figure
 dev.off()
@@ -174,6 +165,27 @@ pheno.data <- pheno.data[-which(!pheno.data$individual_number %in% colnames(coun
 pheno.data <- pheno.data[match(rownames(pheno), pheno.data$index_sequence),] # matching with pheno
 pheno.data$pheno <- pheno$pheno # adding pheno data
 pheno.data$batch_number <- factor(pheno.data$batch_number) # factoring batch_number
+
+#boxplot of counts
+colsum <- as.data.frame(colSums(counts))
+colsum$name <- rownames(colsum)
+colnames(colsum) <- c("count", "names")
+colsum <- colsum[match(pheno.data$individual_number, colsum$names ),] 
+colsum$pheno <- pheno.data$pheno
+boxp1 <- ggplot(colsum) + 
+  geom_boxplot(outlier.colour = "red", outlier.shape = 1, aes(y = count)) +
+  ylab("Assigned Counts") +
+  theme(axis.text.x = element_blank()) 
+boxp1
+dev.copy(pdf,'Output/Figures/assigned-boxplot.pdf') # saving options for figure
+dev.off()
+
+dotplot <- ggplot(colsum) + 
+  geom_point(aes(x = 1,y = count, color = pheno), size = 1.75)+
+  theme(axis.text.x = element_blank())
+dotplot
+dev.copy(pdf,'Output/Figures/assigned-dotplot.pdf') # saving options for figure
+dev.off()
 
 # collapsing replicates without deseq
 counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
@@ -372,7 +384,7 @@ ggplot(pcaData$data)  +
   geom_text(aes(PC1, PC2, color = pheno), label = pheno.data$individual_number) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x) + 
-  scale_color_manual(values = c( "#d11f12", "#547294", "#F0E442"))
+  scale_color_manual(values = c( "#FF7700", "#d11f12", "#03AB11"))
 dev.copy(pdf,'Output/Figures/Fig3-PCA-individual.pdf') # saving options for figure
 dev.off()
 
@@ -383,6 +395,36 @@ ggplot(pcaData$data)  +
   xlab(pcaData$labels$x) + 
   scale_color_manual(values = c("#CC79A7", "#0072B2", "#F0E442", "#D55E00"))
 dev.copy(pdf,'Output/Figures/Fig4-PCA-batch-shape.pdf') # saving options for figure
+dev.off()
+
+# ploting PC3 and PC4
+vv <- rowVars(assay(vsd))
+ntop <- 500 
+select <- order(vv, decreasing = T)[seq_len(min(ntop,length(vv)))] # 500 most var genes
+
+pca <- prcomp(t(assay(vsd)[select,]))
+PC1 <- pca$x[,1]
+PC2 <- pca$x[,2]
+PC3 <- pca$x[,3]
+pcaData<- data.frame(pc1= PC2,pc2 =PC3)
+
+#PCA variation 
+pca.var <- pca$sdev^2
+pca.var <- round(pca.var/sum(pca.var)*100, 1)
+
+ggplot(pcaData) + geom_text(aes(pc1,pc2, color= pheno.data$pheno), 
+                            label = rownames(pcaData))+
+  ylab(paste("PC4:", pca.var[4], '% variance')) +
+  xlab(paste("PC3", pca.var[3], '% variance')) + 
+  scale_color_manual(values = c( "#d11f12", "#03AB11","#FF7700"))
+dev.copy(pdf,'Output/Figures/PCA2-3-individual.pdf') # saving options for figure
+dev.off()
+
+ggplot(pcaData) + geom_point(aes(pc1,pc2, color = pheno.data$batch_number), size = 3)+
+  ylab(paste("PC4:", pca.var[4], '% variance')) +
+  xlab(paste("PC3", pca.var[3], '% variance')) +
+  scale_color_manual(values = c("#CC79A7", "#0072B2", "#F0E442", "#D55E00"))
+dev.copy(pdf,'Output/Figures/PCA2-3-batch-shape.pdf') # saving options for figure
 dev.off()
 
 # differential expression 
@@ -578,6 +620,14 @@ title("c.396+3A>G - large subunit")
 dev.copy(pdf,'Output/Figures/large-ribo-boxplot.pdf') # saving options for figure
 dev.off()
 
+# RPL11 plots
+par(mfrow=c(1,2))
+boxplot(rpl_counts[which(rownames(rpl_counts) %in% c("RPL11")),
+                   which(colnames(rpl_counts) %in% wild.idx)], ylim = c(900, 2750))
+boxplot(rpl_counts[which(rownames(rpl_counts) %in% c("RPL11")),
+                   which(colnames(rpl_counts) %in% car.idx)], ylim = c(900, 2750))
+
+
 # small subunit 
 par(mfrow=c(1,2))
 boxplot(colSums(rps_counts[,which(colnames(rps_counts) %in% wild.idx)]), yim = c(40000, 80000))
@@ -587,16 +637,67 @@ title("c.396+3A>G- small subunit")
 dev.copy(pdf,'Output/Figures/small-ribo-boxplot.pdf') # saving options for figure
 dev.off()
 
+
+# preping long ribo gene datat
 rpl_counts <- rpl_counts[,match(pheno.coll$tech, colnames(rpl_counts))] # ordering counts with pheno
 rpl_long <- as.data.frame(rpl_counts)
 colnames(rpl_long) <- pheno.coll$individual_number
-rpl_long$indiv <- rownames(rpl_long)
+rpl_long$gene <- rownames(rpl_long)
 rpl_long <- rpl_long %>% pivot_longer(cols = 1:(ncol(rpl_long)-1), names_to = "sample", values_to = c("counts"))
 rpl_long<- rpl_long %>% mutate(pheno = case_when(rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
                                                   rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
                                                   rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
 
-rpl_long %>% ggplot(aes(x = indiv, y = counts)) + 
-  geom_point() + 
-  facet_grid(~pheno) + 
+
+# large subunit ribosomal gene dotplot
+rpl_long %>% ggplot(aes(x = gene, y = counts, color = pheno, group = pheno)) +
+  #geom_bar(stat= "identity", position=position_dodge(), alpha = .1) + 
+  geom_point(position = position_dodge(width = .5))+ 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# preping small ribo gene data
+rps_counts <- rps_counts[,match(pheno.coll$tech, colnames(rps_counts))] # ordering counts with pheno
+rps_long <- as.data.frame(rps_counts)
+colnames(rps_long) <- pheno.coll$individual_number
+rps_long$gene <- rownames(rps_long)
+rps_long <- rps_long %>% pivot_longer(cols = 1:(ncol(rps_long)-1), names_to = "sample", values_to = c("counts"))
+rps_long<- rps_long %>% mutate(pheno = case_when(rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
+                                                 rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
+                                                 rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
+
+
+# small subunit ribosomal gene dotplot
+rps_long %>% ggplot(aes(x = gene, y = counts, color = pheno, group = pheno)) +
+  #geom_bar(stat= "identity", position=position_dodge(), alpha = .1) + 
+  geom_point(position = position_dodge(width = .5))+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+rpl_long_plot <- rpl_long %>% 
+  filter(gene != "RPL11") %>%
+  group_by(sample, pheno) %>% 
+  summarize(counts = sum(counts)) %>% 
+  filter(pheno != "S") %>% mutate(type = "Large")
+RPL11_plot <- rpl_long %>% 
+  filter(gene == "RPL11") %>%
+  filter(pheno != "S") %>% 
+  group_by(sample, pheno) %>% 
+  summarise(counts = sum(counts)) %>% mutate(type = "RPL11")
+rps_long_plot <- rps_long %>% 
+  group_by(sample, pheno) %>% 
+  summarize(counts = sum(counts)) %>% 
+  filter(pheno != "S") %>% mutate(type = "Small")
+
+# ribo boxplot
+ribo.plot <- rbind(rpl_long_plot, rps_long_plot, RPL11_plot)
+ribo.plot <- ribo.plot %>% mutate(pheno = case_when(pheno == "C" ~ "c.396+3A>G", pheno == "W" ~ "Noncarrier"))
+ggplot(ribo.plot) + 
+  geom_boxplot( aes(x = pheno, y = counts)) + 
+  facet_wrap(~type, scales = "free") + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.copy(pdf,'Output/Figures/ribo-boxplot.pdf') # saving options for figure
+dev.off()
+
+#for sanity
+test <- t %>% filter(pheno == "W")
+sum(test$counts) == sum(colSums(rpl_counts[, which(colnames(rpl_counts) %in% wild.idx)])) # sanity check
