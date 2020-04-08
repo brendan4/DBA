@@ -18,6 +18,7 @@ stat <- read.table("Input_data/stat.tab", row.names = 1, check.names = F)
 pheno.data <- read_csv("Output/data/pheno_out.txt")
 pheno.data <- as.data.frame(pheno.data)
 
+
 # cleaning sample names
 colnames(counts) <- gsub(".sorted.bam$", "", colnames(counts)) # removes files extension
 colnames(counts) <- gsub("^121317.", "", colnames(counts)) # removes nonunique tag from lib samples
@@ -172,17 +173,20 @@ colsum$name <- rownames(colsum)
 colnames(colsum) <- c("count", "names")
 colsum <- colsum[match(pheno.data$individual_number, colsum$names ),] 
 colsum$pheno <- pheno.data$pheno
+colsum <- colsum[-which(colsum$pheno %in% "S"), ]
+colsum <- colsum %>% mutate(pheno = case_when(pheno == "W" ~ "Non-Carr", pheno == "C" ~ "c.396+3A>G"))
+
 boxp1 <- ggplot(colsum) + 
   geom_boxplot(outlier.colour = "red", outlier.shape = 1, aes(y = count)) +
   ylab("Assigned Counts") +
-  theme(axis.text.x = element_blank()) 
+  theme(axis.text.x = element_blank()) + facet_grid(~pheno)
 boxp1
 dev.copy(pdf,'Output/Figures/assigned-boxplot.pdf') # saving options for figure
 dev.off()
 
 dotplot <- ggplot(colsum) + 
   geom_point(aes(x = 1,y = count, color = pheno), size = 1.75)+
-  theme(axis.text.x = element_blank())
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())
 dotplot
 dev.copy(pdf,'Output/Figures/assigned-dotplot.pdf') # saving options for figure
 dev.off()
@@ -217,6 +221,7 @@ rowMeans(countdata[rp, ])
 
 #OPTIONAL
 # droping s from pheno.data
+
 idx <- which(pheno.coll$pheno == "S")
 pheno.coll$pheno[idx] <- "C"
 pheno.coll$pheno <- factor(pheno.coll$pheno)
@@ -384,7 +389,7 @@ ggplot(pcaData$data)  +
   geom_text(aes(PC1, PC2, color = pheno), label = pheno.data$individual_number) + # with replicate labels
   ylab(pcaData$labels$y) +
   xlab(pcaData$labels$x) + 
-  scale_color_manual(values = c( "#FF7700", "#d11f12", "#03AB11"))
+  scale_color_manual(name = "Pheno",values = c( "black", "#FF7700", "#d11f12"))
 dev.copy(pdf,'Output/Figures/Fig3-PCA-individual.pdf') # saving options for figure
 dev.off()
 
@@ -451,13 +456,30 @@ plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by 
 dev.copy(pdf,'Output/Figures/RPL11-pheno.pdf') # saving options for figure
 dev.off()
 
+diff.results <- data.frame(gene = rownames(res)[which(res$padj < 1)], 
+                           logfold = res$log2FoldChange[which(res$padj < 1)],  
+                           padj = res$padj[which(res$padj < 1)], 
+                           basemean = res$baseMean[which(res$padj < 1)])
+deseq.data = data.frame(gene = rownames(res)[which(res$padj < 0.05)], 
+                        logfold = res$log2FoldChange[which(res$padj < 0.05)],  
+                        padj = res$padj[which(res$padj < 0.05)], basemean = res$baseMean[which(res$padj < 0.05)])
+cdiff.data <- read_csv("Output/data/dseq-dream.csv")
+plot.diff <- data.frame(gene = cdiff.data$gene[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)],
+                       logfold = cdiff.data$logfold[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)],
+                       basemean = cdiff.data$basemean[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)])
+
+ggplot(diff.results) +
+  geom_point(aes(x=log(basemean+0.1), y=logfold), alpha =.75)+
+  geom_label(data = plot.diff, aes(x=log(basemean+0.1), y=logfold, label = gene), 
+             color = "tomato4", size = 2.5)
+dev.copy(pdf,'Output/Figures/MA-plot.pdf') # saving options for figure
+dev.off()
+
+
 write.table(x = data.frame(gene = rownames(res)[which(res$padj < 0.05)], 
                            logfold = res$log2FoldChange[which(res$padj < 0.05)],  
                            padj = res$padj[which(res$padj < 0.05)], basemean = res$baseMean[which(res$padj < 0.05)]), 
             file = "gene_names.csv", sep = ",")
-deseq.data = data.frame(gene = rownames(res)[which(res$padj < 0.05)], 
-               logfold = res$log2FoldChange[which(res$padj < 0.05)],  
-               padj = res$padj[which(res$padj < 0.05)], basemean = res$baseMean[which(res$padj < 0.05)])
 
 # ploting specific genes
 norm <- counts(dds, normalized=TRUE)
@@ -566,9 +588,24 @@ colnames(limma) <- paste("dream", colnames(limma), sep = "_")
 limma.both <- limma[which(rownames(limma) %in% deseq.data$gene), ]
 
 #exporting limma data
+form <- ~ pheno + (1|Individual)
 merged.tables <- merge(deseq.data, limma.both, by.x = "gene", by.y = "dream_gene_names")
 write.table(merged.tables, file = "dseq-dream.csv", sep = ",")
 
+#FRY/ROAST 
+#use t(rp_counts) for propr analysis
+design <- model.matrix(~0+design_DE$StatusSubType)
+colnames(design) <- levels(factor(design_DE$StatusSubType))
+y <- estimateDisp(geneExpr, robust = T, design = design)
+
+cVw <- makeContrasts(C-W, levels = design)
+cVw.fry <- fry(y, index= colnames(rp_counts), contrast = cVw, design=design)
+
+cVs <- makeContrasts(C-S, levels = design)
+cVs.fry <- fry(y, index= colnames(rp_counts), contrast = cVs, design=design)
+
+sVw <- makeContrasts(S-W, levels = design)
+sVw.fry <- fry(y, index= colnames(rp_counts), contrast = sVw, design=design)
 
 
 ## STEP: ribosome plots
@@ -642,36 +679,43 @@ dev.off()
 rpl_counts <- rpl_counts[,match(pheno.coll$tech, colnames(rpl_counts))] # ordering counts with pheno
 rpl_long <- as.data.frame(rpl_counts)
 colnames(rpl_long) <- pheno.coll$individual_number
+rpl_long$means <- rowMeans(rpl_long)
 rpl_long$gene <- rownames(rpl_long)
-rpl_long <- rpl_long %>% pivot_longer(cols = 1:(ncol(rpl_long)-1), names_to = "sample", values_to = c("counts"))
+rpl_long <- rpl_long %>% pivot_longer(cols = 1:(ncol(rpl_long)-2), names_to = "sample", values_to = c("counts"))
 rpl_long<- rpl_long %>% mutate(pheno = case_when(rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
                                                   rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
                                                   rpl_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
-
+rpl_long <- rpl_long %>% mutate(counts = counts/means)
 
 # large subunit ribosomal gene dotplot
 rpl_long %>% ggplot(aes(x = gene, y = counts, color = pheno, group = pheno)) +
   #geom_bar(stat= "identity", position=position_dodge(), alpha = .1) + 
   geom_point(position = position_dodge(width = .5))+ 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.text=element_text(size=8))
+dev.copy(pdf,'Output/Figures/large-ribo-dotplot.pdf') # saving options for figure
+dev.off()
 
 
 # preping small ribo gene data
 rps_counts <- rps_counts[,match(pheno.coll$tech, colnames(rps_counts))] # ordering counts with pheno
 rps_long <- as.data.frame(rps_counts)
 colnames(rps_long) <- pheno.coll$individual_number
+rps_long$means <- rowMeans(rps_long)
 rps_long$gene <- rownames(rps_long)
-rps_long <- rps_long %>% pivot_longer(cols = 1:(ncol(rps_long)-1), names_to = "sample", values_to = c("counts"))
+rps_long <- rps_long %>% pivot_longer(cols = 1:(ncol(rps_long)-2), names_to = "sample", values_to = c("counts"))
 rps_long<- rps_long %>% mutate(pheno = case_when(rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "C")] ~ "C",
                                                  rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "W")] ~ "W",
                                                  rps_long$sample %in% pheno.coll$individual_number[which(pheno.coll$pheno == "S")] ~ "S"))
-
+rps_long <- rps_long %>% mutate(counts = counts/means)
 
 # small subunit ribosomal gene dotplot
 rps_long %>% ggplot(aes(x = gene, y = counts, color = pheno, group = pheno)) +
   #geom_bar(stat= "identity", position=position_dodge(), alpha = .1) + 
   geom_point(position = position_dodge(width = .5))+ 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.text=element_text(size=8))+
+  ylab("counts")
+dev.copy(pdf,'Output/Figures/small-ribo-dotplot.pdf') # saving options for figure
+dev.off()
 
 rpl_long_plot <- rpl_long %>% 
   filter(gene != "RPL11") %>%
@@ -701,3 +745,39 @@ dev.off()
 #for sanity
 test <- t %>% filter(pheno == "W")
 sum(test$counts) == sum(colSums(rpl_counts[, which(colnames(rpl_counts) %in% wild.idx)])) # sanity check
+
+# bfactors export
+rps_counts <- rps_counts[,match(pheno.coll$tech, colnames(rps_counts))] # ordering counts with pheno
+rps <- as.data.frame(rps_counts)
+colnames(rps) <- pheno.coll$individual_number
+
+rpl_counts <- rpl_counts[,match(pheno.coll$tech, colnames(rpl_counts))] # ordering counts with pheno
+rpl <- as.data.frame(rpl_counts)
+colnames(rpl) <- pheno.coll$individual_number
+full <- rbind(rpl, rps)
+
+full <- full[,match(pheno.coll$individual_number, colnames(full))]
+wild.idx <- which(pheno.coll$pheno %in% "W") 
+carr.idx <- which(pheno.coll$pheno %in% "C")
+
+bfactors <- as.data.frame(rowMeans(full[,wild.idx,])/rowMeans(full[,carr.idx]))
+write.table(bfactors, sep = ",", file = "bfactors.txt")
+
+library(plotrix)
+f <- colorRamp(c("white", "blue"))
+range01 <- function(x){(x-min(x))/(max(x)-min(x))}
+colors <- f(range01(bfactors$`rowMeans(full[, carr.idx])/rowMeans(full[, wild.idx, ])`))
+color.scale(range01(bfactors$`rowMeans(full[, carr.idx])/rowMeans(full[, wild.idx, ])`))
+
+
+# pdf reporting
+BiocManager::install("ReportingTools")
+library("ReportingTools")
+des2Report <- HTMLReport(shortName = 'RNAseq_analysis_with_DESeq2',
+                         title = 'RNA-seq analysis of differential expression using DESeq2',
+                         reportDirectory = "./report")
+## This might take a while
+publish(dds,des2Report, pvalueCutoff=0.05,
+        annotation.db="biomaRt", factor = colData(dds)$pheno,
+        reportDir="./reports")
+finish(des2Report)
