@@ -202,16 +202,26 @@ dev.copy(pdf,'Output/Figures/assigned-dotplot.pdf') # saving options for figure
 dev.off()
 
 # collapsing replicates without deseq
-counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
-sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
-countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
-idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
-colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
-pheno.coll <- pheno.data[idx,] # collapsing pheno data
-pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
-countdata<- countdata[,match(pheno.coll$individual_number, colnames(countdata))] # ordering counts with pheno
+collapse.rep <- function(counts, pheno.data) {
+  counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
+  sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
+  countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
+  idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
+  colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
+  pheno.coll <- pheno.data[idx,] # collapsing pheno data
+  pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
+  countdata<- countdata[,match(pheno.coll$individual_number, colnames(countdata))] # ordering counts with pheno
+  data <- list(countdata, pheno.coll)
+  return(data)
+}
+
 
 ## Step: propd analysis
+# collapsing replicates without deseq
+data <- collapse.rep(counts, pheno.data)
+countdata <- data[[1]]
+pheno.coll <- data[[2]]
+
 # Extract counts for ribosomal proteins to analyze differential proportionality
 rp = grep ( "^RP[L|S]", row.names(countdata), perl =T ) 
 rps6k = grep ( "RPS6K", row.names(countdata)) 
@@ -390,6 +400,7 @@ wtv <- function (x,w){
   return ( sum(w * (x - xbar) ** 2) * (sum(w) / ((sum(w) ** 2) - sum((w ** 2)))) )
 }
 
+#OLD METHOD - SEE propd_sampling: propE without propr package
 ct <- t(countdata)
 ct <- ct[-which(pheno.coll.all$pheno == "S"),]
 pheno.coll.all <- pheno.coll # saving for later use if needed
@@ -565,7 +576,7 @@ for (cut in 1:nrow(FDR)) {
   FDR[cut, "FDR"] <- FDR[cut, "randcounts"]/FDR[cut, "truecounts"]
 }
 
-# nonweighted permutations
+# OLD METHOD - SEE propd_sampling.r: nonweighted permutations
 cutoff = seq(0.05, 0.95, 0.3)
 FDR <- as.data.frame(matrix(0, nrow = length(cutoff), ncol = 4))
 colnames(FDR) <- c("cutoff", "randcounts", "truecounts", 
@@ -609,7 +620,7 @@ for (cut in 1:nrow(FDR)) {
   FDR[cut, "FDR"] <- FDR[cut, "randcounts"]/FDR[cut, "truecounts"]
 }
 
-# nonweight vs weighted
+# non-weight vs weighted
 non.weight <- ct.rpl11.old[order(ct.rpl11.old$theta_e), "gene"]
 weight <- ct.rpl11[order(ct.rpl11$theta_e), "gene"]
 
@@ -678,6 +689,10 @@ ct.rpl11.old %>% filter(theta_e < 0.15) %>%
            case_when(c > w ~ "C", c < w ~ "W")) %>% 
   group_by(direction) %>% summarise(count = n())
 
+
+
+## DESeq data prep
+# THIS MUST BE RUN FOR DESeq
 pheno.data.alt <- pheno.data # make changes to pheno.data.alt
 
 # OPTION 1: droping s from pheno.data
@@ -685,7 +700,8 @@ idx <- which(pheno.data.alt$pheno == "S")
 pheno.data.alt$pheno[idx] <- "C"
 pheno.data.alt$pheno <- factor(pheno.data.alt$pheno)
 
-# OPTION 2: Sick indivduals as carriers
+# OPTION 2: Sick individuals as carriers
+# THIS METHOD IS WHAT IS USED FOR THE PAPER
 pheno.data.alt$pheno[which(pheno.data.alt$pheno == "S")] <- "C"
 
 # OPTIONAL: changing C to mutation
@@ -777,11 +793,13 @@ ggplot(pcaData) + geom_point(aes(pc1,pc2, color = pheno.data$batch_number), size
 dev.copy(pdf,'Output/Figures/PCA2-3-batch-shape.pdf') # saving options for figure
 dev.off()
 
-# differential expression: collapsing technical RECOMMENDED
+# differential expression: collapsing technical: HIGHLY RECOMMENDED
 dds <- collapseReplicates(dds, groupby = dds$tech) # collapsing by technical 
 collapsed.counts <- "counts"(dds)
 dds <- DESeq(dds)
-plotDispEsts(dds) # dispersion plot
+
+# dispersion plot
+plotDispEsts(dds) 
 dev.copy(pdf,'Output/Figures/dispersion.pdf') # saving options for figure
 dev.off()
 
@@ -791,83 +809,111 @@ summary(res) # summary of results for group comparison
 resultsNames(dds)
 
 # top results
-top <- rownames(res)[which(res$padj < 0.05)] # view names of sig genes 
+top <- rownames(res)[which(res$padj < 0.01)] # view names of sig genes 
 plotCounts(dds, "RPL11", "pheno") # plot normalized counts of specific genes by group
 dev.copy(pdf,'Output/Figures/RPL11-pheno.pdf') # saving options for figure
 dev.off()
 
 # INDIVIDUAL GEN PLOTS: extracting data from results
-diff.results <- data.frame(gene = rownames(res)[which(res$padj < 1)], 
-                           logfold = res$log2FoldChange[which(res$padj < 1)],  
-                           padj = res$padj[which(res$padj < 1)], 
-                           basemean = res$baseMean[which(res$padj < 1)])
 deseq.data = data.frame(gene = rownames(res)[which(res$padj < 0.01)], 
                         logfold = res$log2FoldChange[which(res$padj < 0.01)],  
                         padj = res$padj[which(res$padj < 0.01)], 
                         basemean = res$baseMean[which(res$padj < 0.01)])
-cdiff.data <- read_csv("Output/data/dseq-dream.csv")
+
+
+# MA PLOT: plots results of differential expression analysis - assumes DESeq has been ran
+DESeq2::plotMA(res, ylim=c(-4,4))  # DESeq ma plot
+text(600,3, label = "Non-carriers") # add text labels not figure
+text(600,-3, label = "c.396+3A>G" , col = "dodgerblue4")
+dev.copy(pdf,'Output/Figures/MA-plot.pdf') # saving options for figure
+dev.off()
+
+# skrinkage estimator
+DESeq2::resultsNames(dds) # select coef for srinkage
+# attempts to reduce low count noise in plots
+resLFC <- DESeq2::lfcShrink(dds, 
+                            coef = "pheno_W_vs_C", 
+                            type = "ashr") 
+DESeq2::plotMA(resLFC, ylim=c(-3,3))
+
+# allocating srinkaged values for diff genes
+SV.data <- data.frame(gene = rownames(resLFC)[which(resLFC$padj < .05)], 
+       logfold = resLFC$log2FoldChange[which(resLFC$padj < .05)],  
+       padj = resLFC$padj[which(resLFC$padj < .05)])
+
+## Adding dream/voom/limma for mixed effects model of differential expression 
+# Will use countdata -> technical replicates collapsed 
+# Matching phenotype are in pheno.coll
+
+# 1/3 of the samples is a good starting point
+isexpr = rowSums(cpm (countdata) > 1 ) >= 1
+geneExpr = DGEList( countdata[isexpr, ])
+geneExpr = calcNormFactors( geneExpr, method = "TMM")
+
+design_DE = as.data.frame ( pheno.coll[,c(3, 10)] ) #keep pheno and long individual name
+design_DE$Individual = sapply ( strsplit(design_DE$individual_number , split = "_"), "[[" , 1 ) 
+design_DE$StatusSubType = as.character( design_DE$pheno ) 
+design_DE$pheno[11:14 ] = rep ( "C" , 4 ) # this is dependent on data used: change pheno to "C" if no sick or statussubtype to "S" if no sick
+design_DE = design_DE [, -1]
+row.names(design_DE) = colnames(countdata)
+
+## We will apply dream to fit the mixed effects model 
+form <- ~ pheno + (1|Individual)
+vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
+fitmm = dream(vobjDream, form, design_DE)
+fitmm$design
+topTable ( fitmm, coef = "phenoW", number = 20)
+limma.SCvN <- as.data.frame (topTable ( fitmm,coef = "phenoW", number = 10000) )
+
+
+# We can alternatively fit with three levels
+form <- ~ StatusSubType + (1|Individual)
+vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
+fitmm = dream(vobjDream, form, design_DE)
+fitmm$design  
+limma <- as.data.frame (topTable ( fitmm, coef = "StatusSubTypeW", number = 10000) )
+limma$gene_names <- rownames(limma)
+colnames(limma) <- paste("dream", colnames(limma), sep = "_")
+limma.both <- limma[which(rownames(limma) %in% deseq.data$gene), ]
+
+# exporting limma data
+merged.tables <- merge(deseq.data, limma.both, by.x = "gene", by.y = "dream_gene_names")
+merged.tables <- merged.tables[-grep("^ENSG.+",merged.tables$gene), ] # removing non-annotated gene
+write.table(merged.tables, file = "Output/data/dseq-dream.csv", sep = ",")
+
+cdiff.data <- read_csv("Output/data/dseq-dream.csv") # reading in combined diff
 plot.diff <- data.frame(gene = cdiff.data$gene[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)],
-                       logfold = cdiff.data$logfold[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)],
-                       basemean = cdiff.data$basemean[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)])
-dream.diff <- data.frame(gene = cdiff.data$gene[which(cdiff.data$dream_P.Value < 0.05)],
-                        logfold = cdiff.data$logfold[which(cdiff.data$dream_P.Value < 0.05)],
-                        basemean = cdiff.data$basemean[which(cdiff.data$dream_P.Value < 0.05)])
+                        logfold = cdiff.data$logfold[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)],
+                        basemean = cdiff.data$basemean[which(cdiff.data$padj < 0.01 & cdiff.data$dream_P.Value < 0.05)]) # enforcing cutoffs
+diff.results <- data.frame(gene = rownames(res)[which(res$padj < 1)], 
+                           logfold = res$log2FoldChange[which(res$padj < 1)],  
+                           padj = res$padj[which(res$padj < 1)], 
+                           basemean = res$baseMean[which(res$padj < 1)])
 
 # simple MA plot 
 ggplot(diff.results) +
   geom_point(aes(x=log(basemean+0.1), y=logfold), alpha =.75, color = "gray45")+
   geom_label(data = plot.diff, aes(x=log(basemean+0.1), y=logfold, label = gene), 
-             color = "orange", size = 1.5)+
+             color = "red", size = 1.5)+
   theme_classic()
 
 ggplot(diff.results) +
   geom_point(aes(x=log(basemean+0.1), y=logfold), alpha =.75, color = "gray45")+
   geom_point(data = plot.diff, aes(x=log(basemean+0.1), y=logfold), 
-             color = "orange", size = 1.5)+
+             color = "red", size = 1.5)+
   theme_classic()
-  
-# MA plot 
-ggplot(diff.results) +
-  geom_point(aes(x=log(basemean+0.1), y=logfold), alpha =.75, color = "gray45")+
-  geom_point(data = deseq.data, aes(x = log(basemean+0.1), y = logfold), 
-             color = "blue", size = 1.5)+
-  geom_point(data = dream.diff, aes(x=log(basemean+0.1), y=logfold), 
-             color = "red")+
-  geom_label(data = plot.diff, aes(x=log(basemean+0.1), y=logfold, label = gene), 
-             color = "orange", size = 1.5)+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/MA-plot.pdf') # saving options for figure
-dev.off()
-
-ggplot(diff.results) +
-  geom_point(aes(x=log(basemean+0.1), y=logfold), alpha =.75, color = "gray45")+
-  geom_point(data = deseq.data, aes(x = log(basemean+0.1), y = logfold), 
-             color = "blue")+
-  geom_point(data = dream.diff, aes(x=log(basemean+0.1), y=logfold), 
-             color = "red")+
-  geom_point(data = plot.diff, aes(x=log(basemean+0.1), y=logfold), 
-             color = "orange")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/MA-plot-no-text.pdf') # saving options for figure
-dev.off()
-
-
-write.table(x = data.frame(gene = rownames(res)[which(res$padj < 0.05)], 
-                           logfold = res$log2FoldChange[which(res$padj < 0.05)],  
-                           padj = res$padj[which(res$padj < 0.05)], basemean = res$baseMean[which(res$padj < 0.05)]), 
-            file = "gene_names.csv", sep = ",")
-
 
 # GENE BOXPLOTS: expression of genes by phenotype
 
-# data is preped and seperated by phenotype
-gene.plot <- t(norm[ which(rownames(norm) %in% plot.diff), ]) # must provide gene names here
-carr.pheno <- pheno.data[which(pheno.data$pheno == "C"), ]
+# data is prepped and separated by phenotype
+norm<- counts(dds, normalized=TRUE) # PLEASE MAKE SURE DDS IS COLLASPED
+gene.plot <- t(norm[ which(rownames(norm) %in% plot.diff$gene), ]) # must provide gene names here
+carr.pheno <- pheno.data[which(pheno.data.alt$pheno == "C"), ]
 carr.genes <- gene.plot[which( rownames(gene.plot) %in% carr.pheno$tech), ]
 carr.genes <- as.data.frame(carr.genes)
 carr.means <- as.data.frame(t(colMeans(carr.genes)))
 
-wild.pheno <- pheno.data[which(pheno.data$pheno == "W"), ]
+wild.pheno <- pheno.data[which(pheno.data.alt$pheno == "W"), ]
 wild.genes <- gene.plot[which( rownames(gene.plot) %in% wild.pheno$tech), ]
 wild.genes <- as.data.frame(wild.genes)
 wild.means <- as.data.frame(t(colMeans(wild.genes)))
@@ -901,93 +947,22 @@ ggplot() + geom_point(data = wild.genes, aes(y = GATA2, x = "Non-carriers"), col
 dev.copy(pdf,'Output/Figures/GATA2.pdf') # saving options for figure
 dev.off()
 
-ggplot() + geom_point(data = wild.genes, aes(y = BANK1, x = "Non-carriers"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= BANK1, x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = BANK1, "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = BANK1, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "BANK1 Normalized")+
+ggplot() + geom_point(data = wild.genes, aes(y = ENSG00000285976  , x = "Non-carriers"), color = "#547294") + 
+  geom_point(data = carr.genes, aes(y= ENSG00000285976  , x = "c.396+3A>G"), color = "#d11f12") + 
+  geom_bar(data = wild.means, aes(y = ENSG00000285976  , "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
+  geom_bar(data = carr.means, aes(y = ENSG00000285976  , "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
+  labs(x = "Genotype", y = "ENSG00000285976 Normalized")+
   theme_classic()
-dev.copy(pdf,'Output/Figures/BANK1.pdf') # saving options for figure
-dev.off()
-
-ggplot() + geom_point(data = wild.genes, aes(y =`HLA-DQA2` , x = "Non-carriers"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= `HLA-DQA2`, x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = `HLA-DQA2`, "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = `HLA-DQA2`, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "HLA-DQA2 Normalized")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/boxplots/HLA-DQA2.pdf') # saving options for figure
+dev.copy(pdf,'Output/Figures/ENSG00000285976.pdf') # saving options for figure
 dev.off()
 
 
-# MA PLOT: plots results of differential expression analysis - assumes DESeq has been ran
-DESeq2::plotMA(res, ylim=c(-4,4))  # DESeq ma plot
-text(600,3, label = "Non-carriers") # add text labels not figure
-text(600,-3, label = "c.396+3A>G" , col = "dodgerblue4")
-dev.copy(pdf,'Output/Figures/MA-plot.pdf') # saving options for figure
-dev.off()
-
-# skrinkage estimator
-DESeq2::resultsNames(dds) # select coef for srinkage
-# attempts to reduce low count noise in plots
-resLFC <- DESeq2::lfcShrink(dds, 
-                            coef = "pheno_W_vs_C", 
-                            type = "ashr") 
-DESeq2::plotMA(resLFC, ylim=c(-3,3))
-
-# allocating srinkaged values for diff genes
-SV.data <- data.frame(gene = rownames(resLFC)[which(resLFC$padj < .05)], 
-       logfold = resLFC$log2FoldChange[which(resLFC$padj < .05)],  
-       padj = resLFC$padj[which(resLFC$padj < .05)])
-
-## Adding dream/voom/limma for mixed effects model of differential expression 
-# Will use countdata -> technical replicates collapsed 
-# Matching phenotypes are in pheno.coll
-
-# 1/3 of the samples is a good starting point
-isexpr = rowSums(cpm (countdata) > 1 ) >= 1
-geneExpr = DGEList( countdata[isexpr, ])
-geneExpr = calcNormFactors( geneExpr, method = "TMM")
-
-design_DE = as.data.frame ( pheno.coll[,c(3, 9)] ) 
-design_DE$Individual = sapply ( strsplit(design_DE$individual_number , split = "_"), "[[" , 1 ) 
-design_DE$StatusSubType = as.character( design_DE$pheno ) 
-design_DE$StatusSubType[11:14 ] = rep ( "S" , 4 ) 
-design_DE = design_DE [, -1]
-row.names(design_DE) = colnames(countdata)
-
-## We will apply dream to fit the mixed effects model 
-form <- ~ pheno + (1|Individual)
-vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
-fitmm = dream(vobjDream, form, design_DE)
-fitmm$design
-
-topTable ( fitmm, coef = "phenoW", number = 20)
-
-# We can alternatively fit with three levels
-form <- ~ StatusSubType + (1|Individual)
-vobjDream = voomWithDreamWeights(geneExpr, form, design_DE, plot = T)
-fitmm = dream(vobjDream, form, design_DE)
-head ( fitmm$design ) 
-limma <- as.data.frame (topTable ( fitmm, coef = 2, number = 10000) )
-limma$gene_names <- rownames(limma)
-colnames(limma) <- paste("dream", colnames(limma), sep = "_")
-limma.both <- limma[which(rownames(limma) %in% deseq.data$gene), ]
-
-# exporting limma data
-form <- ~ pheno + (1|Individual)
-merged.tables <- merge(deseq.data, limma.both, by.x = "gene", by.y = "dream_gene_names")
-write.table(merged.tables, file = "dseq-dream.csv", sep = ",")
 
 # FRY?ROAST collapse - gene set analysis
 # preping the data
-counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
-sp <- split(seq(along = pheno.data$indiv), pheno.data$indiv) # splitting and obtaining index of tech for each sample 
-countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
-idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
-colnames(countdata) <- pheno.data$indiv[idx] # replacing names
-pheno.coll <- pheno.data[idx,] # collapsing pheno data
-pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
+data <- collapse.rep(counts, pheno.data)
+countdata <- data[[1]]
+pheno.coll <- data[[2]]
 
 dds.coll <- collapseReplicates(dds, groupby = dds$indiv)
 collapsed.counts <- "counts"(dds.coll)
@@ -1036,13 +1011,9 @@ sVw.fry <- fry(y, index= rownames(rp_counts), contrast = sVw, design=design)
 
 ## RIBOSOME PLOTS
 # collapsing replicates without deseq
-counts <- counts[,match(pheno.data$individual_number, colnames(counts))] # ordering counts with pheno
-sp <- split(seq(along = pheno.data$tech), pheno.data$tech) # splitting and obtaining index of tech for each sample 
-countdata <- sapply(sp, function(i) rowSums(counts[ , i, drop = FALSE])) # summing the rows of count data based on tech status 
-idx <- sapply(sp, function(i) i[1]) # obtaining idx for each sample
-colnames(countdata) <- pheno.data$individual_number[idx] # replacing names
-pheno.coll <- pheno.data[idx,] # collapsing pheno data
-pheno.coll <- pheno.coll [order(pheno.coll$pheno), ]
+data <- collapse.rep(counts, pheno.data)
+countdata <- data[[1]]
+pheno.coll <- data[[2]]
 
 
 # norm counts by pheno plot : all counts 
@@ -1245,26 +1216,27 @@ rps_long_plot <- rps_long %>%
 
 # ribo boxplots
 ribo.plot <- rbind(rpl_long_plot, rps_long_plot, RPL11_plot)
-ribo.plot <- ribo.plot %>% mutate(pheno = case_when(pheno == "C" ~ "c.396+3A>G", pheno == "W" ~ "Noncarrier"))
+ribo.plot <- ribo.plot %>% mutate(pheno = case_when(pheno == "Carr" ~ "c.396+3A>G", pheno == "Non-Carr" ~ "Noncarrier"))
 
 #ploting ribo boxplots
 ggplot(ribo.plot) + 
   geom_boxplot( aes(x = pheno, y = counts)) + 
   facet_wrap(~type, scales = "free") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + theme_classic()
 dev.copy(pdf,'Output/Figures/ribo-boxplot.pdf') # saving options for figure
 dev.off()
 
 # individual gene boxplots
-RPS19_plot <- rps_long %>% 
-  filter(gene == "RPS19") %>%
+RPS19_plot <- rpl_long %>% 
+  filter(gene == "RPL26") %>%
   filter(pheno != "S") %>% 
   group_by(sample, pheno) %>% 
-  summarise(counts = sum(counts)) %>% mutate(type = "RPS19")
+  summarise(counts = sum(counts)) %>% mutate(type = "RPL26")
+RPS19_plot <- RPS19_plot %>% mutate(pheno = case_when(pheno == "Carr" ~ "c.396+3A>G", pheno == "Non-Carr" ~ "Noncarrier"))
 
 ggplot(RPS19_plot) + 
   geom_boxplot( aes(x = pheno, y = counts)) + 
-  theme_classic() + ggtitle("RPS19")
+  theme_classic() + ggtitle("RPL26")
 
 # RPL11 dot plot
 RPL11_dot <- rpl_long %>% 
