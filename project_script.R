@@ -834,7 +834,7 @@ DESeq2::resultsNames(dds) # select coef for srinkage
 resLFC <- DESeq2::lfcShrink(dds, 
                             coef = "pheno_W_vs_C", 
                             type = "ashr") 
-DESeq2::plotMA(resLFC, ylim=c(-3,3))
+rDESeq2::plotMA(resLFC, ylim=c(-3,3))
 
 # allocating srinkaged values for diff genes
 SV.data <- data.frame(gene = rownames(resLFC)[which(resLFC$padj < .05)], 
@@ -918,44 +918,52 @@ wild.genes <- gene.plot[which( rownames(gene.plot) %in% wild.pheno$tech), ]
 wild.genes <- as.data.frame(wild.genes)
 wild.means <- as.data.frame(t(colMeans(wild.genes)))
 
+sick.pheno <- pheno.data[which(pheno.data$pheno == "S"), ]
+sick.genes <- gene.plot[which( rownames(gene.plot) %in% sick.pheno$tech), ]
+sick.genes <- as.data.frame(sick.genes)
+sick.means <- as.data.frame(t(colMeans(sick.genes)))
+
 # GENE BOXPLOTS: must prep data above
-ggplot() + geom_point(data = wild.genes, aes(y = RPL11, x = "W"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= RPL11, x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = RPL11, "W"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = RPL11, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "RPL11 Normalized")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/RPL11.pdf') # saving options for figure
-dev.off()
-
-ggplot() + geom_point(data = wild.genes, aes(y = CDK11A, x = "Non-carriers"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= CDK11A, x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = CDK11A, "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = CDK11A, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "CDK11A Normalized")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/CDK11A.pdf') # saving options for figure
-dev.off()
-
-
-ggplot() + geom_point(data = wild.genes, aes(y = GATA2, x = "Non-carriers"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= GATA2, x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = GATA2, "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = GATA2, "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "GATA2 Normalized")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/GATA2.pdf') # saving options for figure
-dev.off()
-
-ggplot() + geom_point(data = wild.genes, aes(y = ENSG00000285976  , x = "Non-carriers"), color = "#547294") + 
-  geom_point(data = carr.genes, aes(y= ENSG00000285976  , x = "c.396+3A>G"), color = "#d11f12") + 
-  geom_bar(data = wild.means, aes(y = ENSG00000285976  , "Non-carriers"), stat = "identity", color = "#547294", alpha = .2)+
-  geom_bar(data = carr.means, aes(y = ENSG00000285976  , "c.396+3A>G"), stat = "identity", color = "#d11f12", alpha = .2) +
-  labs(x = "Genotype", y = "ENSG00000285976 Normalized")+
-  theme_classic()
-dev.copy(pdf,'Output/Figures/ENSG00000285976.pdf') # saving options for figure
-dev.off()
-
+diff.list <- plot.diff$gene
+for(i in 1:length(diff.list)){
+  gene <- diff.list[i]
+  ggplot() + 
+    geom_jitter(data = wild.genes, 
+                aes(y =get(gene), x = "Non-carriers"), 
+                color = "black", 
+                fill = "gray55", 
+                width = .1, 
+                size = 2, 
+                shape = 21) + 
+    geom_jitter(data = carr.genes,
+                aes(y=  get(gene) , x = "c.396+3A>G"),
+                color = "red3",
+                fill = "salmon1",
+                width = .1,
+                size = 2, 
+                shape = 21) + 
+    geom_jitter(data = sick.genes,
+                aes(y= get(gene)  , x = "c.396+3A>G"),
+                fill = "red3",
+                color = "red3", 
+                width = .1,
+                size = 2, 
+                shape = 21) + 
+    geom_bar(data = wild.means, 
+             aes(y =  get(gene) , "Non-carriers"),
+             stat = "identity", 
+             color = "gray55", 
+             alpha = .2)+
+    geom_bar(data = carr.means, 
+             aes(y = get(gene)  , "c.396+3A>G"), 
+             stat = "identity", 
+             color = "red3", 
+             alpha = .2) +
+    labs(x = "Genotype", y = paste(gene,"Normalized"))+
+    theme_classic()
+  dev.copy(pdf, paste('Output/Figures/',gene,'.pdf')) # saving options for figure
+  dev.off()
+}
 
 
 # FRY?ROAST collapse - gene set analysis
@@ -1029,7 +1037,7 @@ sums <- sums %>% mutate(pheno = case_when(pheno == "W" ~ "Non-Carr", pheno == "C
 # keep s in distrubutions
 sums <- sums %>% mutate(temp = case_when(pheno == "Non-Carr" ~ "W", pheno == "Carr" | pheno == 'DBA' ~ "M"))
 
-# boxplot of distrubution of normalized counts 
+# boxplot of distribution of normalized counts 
 ggplot(sums) + 
   geom_boxplot(outlier.colour = "red", outlier.shape = 1, aes(y = count)) +
   ylab("Normalized Counts") +
@@ -1037,7 +1045,7 @@ ggplot(sums) +
 dev.copy(pdf,'Output/Figures/allcounts-boxplot.pdf') # saving options for figure
 dev.off()
 
-# dotplot of distrubution of normalized counts
+# dotplot of distribution of normalized counts
 dotplot <- ggplot(sums) +
   geom_point(aes(x = 1,y = count, fill = pheno, color = temp), size = 2, shape = 21, 
              position = position_dodge(width = .5))+
@@ -1218,11 +1226,11 @@ rps_long_plot <- rps_long %>%
 ribo.plot <- rbind(rpl_long_plot, rps_long_plot, RPL11_plot)
 ribo.plot <- ribo.plot %>% mutate(pheno = case_when(pheno == "Carr" ~ "c.396+3A>G", pheno == "Non-Carr" ~ "Noncarrier"))
 
-#ploting ribo boxplots
+#plotting ribo boxplots
 ggplot(ribo.plot) + 
   geom_boxplot( aes(x = pheno, y = counts)) + 
   facet_wrap(~type, scales = "free") + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + theme_classic()
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dev.copy(pdf,'Output/Figures/ribo-boxplot.pdf') # saving options for figure
 dev.off()
 
@@ -1412,9 +1420,9 @@ deseq.data = data.frame( logfold = res$log2FoldChange[which(rownames(res) %in% r
                          res$padj[which(rownames(res) %in% rownames(full))])
 
 # here is the Skinage values for bfactor
-SV.data <- data.frame(row.names = rownames(resLFC)[which(rownames(resLFC) %in% rownames(full))], 
+ribo.data <- data.frame(row.names = rownames(resLFC)[which(rownames(resLFC) %in% rownames(full))], 
                       logfold = resLFC$log2FoldChange[which(rownames(resLFC) %in% rownames(full))])
-write.table(SV.data, sep = ",", file = "bfactors.txt")
+write.table(ribo.data, sep = ",", file = "bfactors.txt")
 
 library(plotrix)
 f <- colorRamp(c("white", "blue"))
